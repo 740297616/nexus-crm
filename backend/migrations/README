@@ -1,0 +1,10 @@
+# Alembic migrations
+
+Run from `backend/`:
+
+```text
+alembic upgrade head
+alembic downgrade base
+```
+
+The first revision is an intentionally empty baseline. Business tables are introduced in later phases through reviewed migrations.

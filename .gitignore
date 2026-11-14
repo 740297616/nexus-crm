@@ -1,0 +1,29 @@
+# Frontend
+frontend/node_modules/
+.pnpm-store/
+frontend/dist/
+frontend/coverage/
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/*.egg-info/
+backend/coverage.xml
+backend/htmlcov/
+
+# Environment and local data
+.env
+.env.*
+!.env.example
+postgres-data/
+.uv-cache/
+
+# Editors and OS
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
