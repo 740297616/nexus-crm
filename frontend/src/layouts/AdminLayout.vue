@@ -10,11 +10,11 @@ import {
   User,
   UserFilled,
 } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -34,7 +34,20 @@ function navigate(path: string) {
 }
 
 function showProfilePlaceholder() {
-  ElMessage.info('用户中心将在认证模块完成后启用')
+  void router.push('/settings/password')
+}
+
+async function logout() {
+  await authStore.logout()
+  await router.push('/login')
+}
+
+function handleUserCommand(command: string) {
+  if (command === 'profile') {
+    showProfilePlaceholder()
+  } else if (command === 'logout') {
+    void logout()
+  }
 }
 </script>
 
@@ -71,17 +84,17 @@ function showProfilePlaceholder() {
             <el-breadcrumb-item>{{ pageTitle }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
-        <el-dropdown trigger="click" @command="showProfilePlaceholder">
+        <el-dropdown trigger="click" @command="handleUserCommand">
           <button class="user-profile" type="button">
             <el-avatar :size="34">A</el-avatar>
             <span class="user-copy">
-              <strong>访客用户</strong>
-              <small>基础布局预览</small>
+              <strong>{{ authStore.user?.display_name ?? authStore.user?.username }}</strong>
+              <small>{{ authStore.user?.email ?? '已认证用户' }}</small>
             </span>
           </button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人信息</el-dropdown-item>
+              <el-dropdown-item command="profile">修改密码</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>

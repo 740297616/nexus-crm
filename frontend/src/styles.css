@@ -214,3 +214,73 @@ h1 {
 .placeholder-view :deep(.el-empty) {
   padding-top: 140px;
 }
+
+.login-page {
+  align-items: center;
+  background:
+    radial-gradient(circle at 12% 15%, rgb(99 102 241 / 20%), transparent 28%),
+    radial-gradient(circle at 85% 80%, rgb(96 165 250 / 18%), transparent 30%), #f4f7fb;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgb(31 41 55 / 12%);
+  max-width: 440px;
+  padding: 42px;
+  width: 100%;
+}
+
+.login-brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 46px;
+}
+
+.login-brand strong,
+.login-brand span {
+  display: block;
+}
+
+.login-brand strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.login-brand span {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.login-heading {
+  margin-bottom: 28px;
+}
+
+.login-heading p:last-child {
+  color: #6b7280;
+  margin: 0;
+}
+
+.login-submit {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.security-note {
+  color: #9ca3af;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 20px 0 0;
+  text-align: center;
+}
+
+.password-card {
+  max-width: 620px;
+}

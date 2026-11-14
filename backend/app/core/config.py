@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://nexus:nexus@localhost:5432/nexus_crm"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    jwt_secret_key: str = ""
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    login_max_attempts: int = 5
+    login_window_seconds: int = 900
+    login_lockout_seconds: int = 900
 
     model_config = SettingsConfigDict(
         env_file=".env",

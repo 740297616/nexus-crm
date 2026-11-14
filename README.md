@@ -33,6 +33,8 @@ pnpm dev
 
 前端默认地址为 `http://localhost:5173`，后端文档为 `http://localhost:8000/docs`，健康检查为 `http://localhost:8000/healthz` 和 `http://localhost:8000/readyz`。
 
+认证接口已接入 `/api/v1/auth`：`login`、`refresh`、`logout`、`me` 和 `change-password`。请在本地 `.env` 中设置随机的 `JWT_SECRET_KEY`；Access Token 只在内存中使用，Refresh Token 由服务端保存哈希并轮换。
+
 ## Docker Compose
 
 开发环境支持前后端热更新，并为 PostgreSQL 提供持久化 Volume：

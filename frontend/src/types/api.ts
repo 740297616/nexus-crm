@@ -5,6 +5,23 @@ export interface ApiSuccess<T> {
   request_id: string
 }
 
+export interface AuthTokens {
+  access_token: string
+  refresh_token: string
+  token_type: 'bearer'
+  expires_in: number
+}
+
+export interface CurrentUser {
+  id: string
+  username: string
+  email: string | null
+  display_name: string
+  department_id: string | null
+  status: 'active' | 'disabled'
+  last_login_at: string | null
+}
+
 export interface ApiErrorBody {
   success: false
   error: {

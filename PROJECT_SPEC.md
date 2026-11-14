@@ -233,7 +233,7 @@ users 1──N refresh_tokens
 | HTTP | 错误码 | 使用场景 |
 |---:|---|---|
 | 400 | `VALIDATION_ERROR` | 请求体、查询参数或字段格式不合法 |
-| 401 | `AUTH_REQUIRED` / `TOKEN_INVALID` / `TOKEN_EXPIRED` | 缺少、无效或过期令牌 |
+| 401 | `AUTH_REQUIRED` / `TOKEN_INVALID` / `TOKEN_EXPIRED` / `AUTH_INVALID_CREDENTIALS` / `ACCOUNT_DISABLED` | 缺少、无效或过期令牌，或认证信息/账号状态不合法 |
 | 403 | `PERMISSION_DENIED` / `DATA_SCOPE_DENIED` | 无操作权限或超出数据范围 |
 | 404 | `RESOURCE_NOT_FOUND` / `CUSTOMER_NOT_FOUND` | 资源不存在或对当前用户不可见 |
 | 409 | `DUPLICATE_RESOURCE` / `CONFLICT` | 唯一键冲突或并发版本冲突 |
@@ -249,6 +249,7 @@ POST   /auth/login
 POST   /auth/refresh
 POST   /auth/logout
 GET    /auth/me
+POST   /auth/change-password
 
 GET/POST/PATCH /users
 GET/POST/PATCH /departments
