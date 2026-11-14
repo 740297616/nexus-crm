@@ -85,8 +85,8 @@
 
 - 权限使用稳定代码，如 customer:read、customer:create、customer:update、customer:delete、follow_up:read、user:manage、audit_log:read。
 - 角色聚合权限，用户分配角色；角色名称不得硬编码为业务判断，新增角色必须同时声明权限和数据范围。
-- 初始角色与项目规范保持一致：super_admin、admin、sales_manager、sales。系统角色不能被普通管理员删除或任意分配。
-- super_admin 拥有全部权限和全部数据范围；admin 拥有业务数据和组织管理的全部数据范围，但不能修改系统级安全配置；sales_manager 使用部门及下属部门范围；sales 使用本人负责、本人跟进和显式共享客户范围。
+- 当前组织/RBAC 基线角色为 system_admin、department_manager、employee。system_admin 拥有组织、用户和权限管理权限；department_manager 读取本部门及下属部门的用户和组织；employee 只访问工作台。CRM 销售角色及客户数据范围在对应 Phase 实现前不得擅自加入。
+- system_admin 拥有全部权限和 all 数据范围；department_manager 的组织数据范围为 subtree；employee 的数据范围为 self。系统角色不得被普通角色删除、修改或任意授予。
 - 权限必须在后端依赖和 Service 资源校验中执行，前端隐藏按钮不能代替后端授权。
 
 ### 7.3 数据范围
@@ -160,8 +160,9 @@
 | Phase | 交付重点 | 必须通过的验收 |
 |---|---|---|
 | Phase 0 | 规范、目录、ER、API、认证、权限和路线图 | 文档可独立指导开发；技术栈和边界无冲突；无业务代码。 |
-| Phase 1 | 工程骨架、Compose/Caddy、数据库、Alembic、统一异常、认证、用户部门、CI | 空库迁移成功；/api/v1 登录可用；令牌轮换和禁用用户校验通过；质量门禁通过。 |
-| Phase 2 | RBAC、角色权限、部门树、四级数据范围、统一 scope、审计 | 四类角色访问矩阵通过；列表/详情/增改删均不越权；部门下属范围和审计正确。 |
+| Phase 1 | 工程骨架、Compose/Caddy、数据库、Alembic、统一异常、认证、CI | 空库迁移成功；/api/v1 登录可用；令牌轮换可验证；质量门禁通过。 |
+| Phase 1.2 | 用户、部门、角色、权限、管理页面、管理员 bootstrap | 管理员/主管/员工权限矩阵通过；菜单/页面/API 权限类型分离；部门子树查询正确；员工不能访问管理 API；系统角色受保护。 |
+| Phase 2 | CRM 数据范围、统一 scope、客户和跟进业务授权 | 本人/部门/下属/全部范围测试通过；列表/详情/增改删均无法越权；越权不泄露资源存在性；审计正确。 |
 | Phase 3 | 客户、联系人 CRUD、筛选分页、负责人、共享、详情关联 | 唯一约束、软删除、跨客户关联、共享、并发冲突和前端核心流程测试通过。 |
 | Phase 4 | 跟进、下次跟进、客户时间线、基础统计和 ECharts | 关联和数据范围正确；时间及时区正确；写入有审计；接口达到规范性能目标。 |
 | Phase 5 | 发布加固、备份恢复、迁移恢复、权限/监控/日志运行手册 | 可从空环境部署和恢复；故障、未授权访问和关键接口有可观测结果；发布清单全部通过。 |

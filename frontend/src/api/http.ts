@@ -8,6 +8,7 @@ let accessToken: string | null = null
 let refreshToken: string | null = null
 let refreshPromise: Promise<string | null> | null = null
 let onSessionExpired: () => void = () => undefined
+let onTokensRotated: ((tokens: AuthTokens) => void) | undefined
 
 export const http = axios.create({
   baseURL,
@@ -25,8 +26,12 @@ const refreshClient = axios.create({
   },
 })
 
-export function configureAuthTransport(sessionExpired: () => void) {
+export function configureAuthTransport(
+  sessionExpired: () => void,
+  tokensRotated?: (tokens: AuthTokens) => void,
+) {
   onSessionExpired = sessionExpired
+  onTokensRotated = tokensRotated
 }
 
 export function setAuthTokens(tokens: AuthTokens) {
@@ -60,6 +65,7 @@ async function rotateTokens() {
       .post<ApiSuccess<AuthTokens>>('/auth/refresh', { refresh_token: refreshToken })
       .then((response) => {
         setAuthTokens(response.data.data)
+        onTokensRotated?.(response.data.data)
         return response.data.data.access_token
       })
       .catch(() => {

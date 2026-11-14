@@ -13,6 +13,12 @@ const router = createRouter({
       meta: { title: '登录' },
     },
     {
+      path: '/forbidden',
+      name: 'forbidden',
+      component: () => import('@/views/ForbiddenView.vue'),
+      meta: { title: '无权访问', requiresAuth: true },
+    },
+    {
       path: '/',
       component: AdminLayout,
       meta: { requiresAuth: true },
@@ -21,31 +27,49 @@ const router = createRouter({
           path: '',
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
-          meta: { title: '工作台' },
+          meta: { title: '工作台', permission: 'dashboard:page' },
+        },
+        {
+          path: 'users',
+          name: 'users',
+          component: () => import('@/views/UsersView.vue'),
+          meta: { title: '用户管理', permission: 'users:page' },
+        },
+        {
+          path: 'departments',
+          name: 'departments',
+          component: () => import('@/views/DepartmentsView.vue'),
+          meta: { title: '部门管理', permission: 'departments:page' },
+        },
+        {
+          path: 'roles',
+          name: 'roles',
+          component: () => import('@/views/RolesView.vue'),
+          meta: { title: '角色权限', permission: 'roles:page' },
         },
         {
           path: 'customers',
           name: 'customers',
           component: () => import('@/views/PlaceholderView.vue'),
-          meta: { title: '客户管理' },
+          meta: { title: '客户管理', permission: 'customers:page' },
         },
         {
           path: 'contacts',
           name: 'contacts',
           component: () => import('@/views/PlaceholderView.vue'),
-          meta: { title: '联系人管理' },
+          meta: { title: '联系人管理', permission: 'contacts:page' },
         },
         {
           path: 'follow-ups',
           name: 'follow-ups',
           component: () => import('@/views/PlaceholderView.vue'),
-          meta: { title: '跟进记录' },
+          meta: { title: '跟进记录', permission: 'follow_ups:page' },
         },
         {
           path: 'settings',
           name: 'settings',
           component: () => import('@/views/PlaceholderView.vue'),
-          meta: { title: '系统设置' },
+          meta: { title: '系统设置', permission: 'settings:page' },
         },
         {
           path: 'settings/password',
@@ -65,6 +89,10 @@ router.beforeEach((to) => {
   }
   if (to.name === 'login' && authStore.isAuthenticated) {
     return { name: 'dashboard' }
+  }
+  const requiredPermission = to.meta.permission
+  if (typeof requiredPermission === 'string' && !authStore.hasPermission(requiredPermission)) {
+    return { name: 'forbidden' }
   }
   return true
 })

@@ -77,7 +77,7 @@ class AuthService:
         )
 
     def _issue_tokens(self, user: User) -> TokenResponse:
-        access_token, _ = self.token_service.create_access_token(user.id)
+        access_token, _ = self.token_service.create_access_token(user.id, user.auth_version)
         refresh_token, refresh_id, refresh_expires_at = self.token_service.create_refresh_token(
             user.id
         )
@@ -210,6 +210,7 @@ class AuthService:
         stored_token.revoked_at = now
         stored_token.last_used_at = now
         tokens = self._issue_tokens(user)
+        self.db.flush()
         new_payload = self.token_service.decode(tokens.refresh_token, "refresh")
         stored_token.replaced_by_id = str(new_payload["jti"])
         self._audit(
@@ -289,6 +290,7 @@ class AuthService:
             )
 
         user.password_hash = hash_password(new_password)
+        user.auth_version += 1
         revoke_user_refresh_tokens(self.db, user.id)
         self._audit(
             actor_user_id=user.id,

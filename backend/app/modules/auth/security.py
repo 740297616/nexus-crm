@@ -43,7 +43,11 @@ class TokenService:
         return self.settings.jwt_secret_key
 
     def _encode(
-        self, subject: str, token_type: str, expires_delta: timedelta
+        self,
+        subject: str,
+        token_type: str,
+        expires_delta: timedelta,
+        additional_claims: dict[str, Any] | None = None,
     ) -> tuple[str, str, datetime]:
         issued_at = datetime.now(UTC)
         expires_at = issued_at + expires_delta
@@ -55,17 +59,20 @@ class TokenService:
             "exp": expires_at,
             "token_type": token_type,
         }
+        if additional_claims:
+            payload.update(additional_claims)
         return (
             jwt.encode(payload, self._secret(), algorithm=self.settings.jwt_algorithm),
             token_id,
             expires_at,
         )
 
-    def create_access_token(self, subject: str) -> tuple[str, datetime]:
+    def create_access_token(self, subject: str, auth_version: int = 0) -> tuple[str, datetime]:
         token, _, expires_at = self._encode(
             subject,
             "access",
             timedelta(minutes=self.settings.access_token_expire_minutes),
+            {"ver": auth_version},
         )
         return token, expires_at
 

@@ -13,6 +13,7 @@ from app.modules.auth.schema import (
 )
 from app.modules.auth.security import login_rate_limiter, token_service
 from app.modules.auth.service import AuthService
+from app.modules.roles.repository import get_permission_codes_for_user, get_role_codes_for_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -55,9 +56,13 @@ def logout(payload: LogoutRequest, request: Request, db: Session = Depends(get_d
 
 
 @router.get("/me", response_model=None, summary="Get current user")
-def me(request: Request, user=Depends(get_current_user)):
+def me(request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)):
     return success_response(
-        UserResponse.model_validate(user).model_dump(mode="json"),
+        {
+            **UserResponse.model_validate(user).model_dump(mode="json"),
+            "role_codes": get_role_codes_for_user(db, user.id),
+            "permission_codes": sorted(get_permission_codes_for_user(db, user.id)),
+        },
         request.state.request_id,
     )
 

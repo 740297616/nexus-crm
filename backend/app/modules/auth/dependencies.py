@@ -20,4 +20,6 @@ def get_current_user(
     user = get_user_by_id(db, str(payload["sub"]))
     if user is None or user.status != "active":
         raise AppException("AUTH_REQUIRED", "请先登录", status_code=401)
+    if payload.get("ver", 0) != user.auth_version:
+        raise AppException("TOKEN_INVALID", "令牌已失效", status_code=401)
     return user

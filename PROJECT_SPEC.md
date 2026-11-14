@@ -160,7 +160,7 @@ users 1──N refresh_tokens
 | `departments` | `id`, `name`, `parent_id`（自引用，可空）, `is_active`；同一父节点下名称唯一；禁止形成环。 |
 | `users` | `id`, `username` 唯一, `email` 唯一可空, `password_hash`, `display_name`, `department_id`, `status`（active/disabled）, `last_login_at`；禁用用户不能登录。 |
 | `roles` | `id`, `name` 唯一, `code` 唯一, `description`, `data_scope`（self/department/subtree/all）, `is_system`；系统角色不可被普通管理员删除。 |
-| `permissions` | `id`, `code` 唯一, `name`, `resource`, `action`；代码由后端常量维护，数据库保存展示信息。 |
+| `permissions` | `id`, `code` 唯一, `name`, `resource`, `action`, `permission_type`（menu/page/api）；代码由后端常量维护，数据库保存展示信息。 |
 | `user_roles` | `user_id`, `role_id`；联合主键，避免重复分配。 |
 | `role_permissions` | `role_id`, `permission_id`；联合主键。 |
 | `customers` | `id`, `name`, `code` 唯一, `source`, `industry`, `phone`, `email`, `address`, `status`, `owner_id`, `department_id`, `remark`, `deleted_at`；`owner_id` 和 `department_id` 必填。 |
@@ -252,9 +252,12 @@ GET    /auth/me
 POST   /auth/change-password
 
 GET/POST/PATCH /users
-GET/POST/PATCH /departments
-GET/POST/PATCH /roles
-GET             /permissions
+PUT              /users/{user_id}/roles
+PATCH            /users/{user_id}/status
+GET/POST/PATCH/DELETE /departments
+GET/POST/PATCH/DELETE /roles
+PUT              /roles/{role_id}/permissions
+GET              /permissions
 
 GET/POST/PATCH/DELETE /customers
 GET/POST/PATCH/DELETE /customers/{customer_id}/contacts
@@ -284,18 +287,19 @@ GET    /readyz
 
 权限采用稳定代码，例如 `customer:read`、`customer:create`、`customer:update`、`customer:delete`、`follow_up:read`、`user:manage`、`audit_log:read`。角色分配权限，用户分配角色；权限判断集中在依赖和 Service 层。
 
-建议的初始角色：
+当前组织与 RBAC 基线角色：
 
-- `super_admin`：全部权限、全部数据范围，只有初始化或特定管理员可分配。
-- `admin`：用户、组织、角色和业务数据管理，全部数据范围但不允许修改系统级安全配置。
-- `sales_manager`：团队客户和跟进管理，部门及下属部门数据范围。
-- `sales`：本人负责客户、被显式共享客户及本人跟进记录。
+- `system_admin`：全部组织、用户和权限管理权限，全部数据范围；由受控 bootstrap 创建首个账号。
+- `department_manager`：读取本部门及下属部门组织和用户，查看角色目录；无用户创建、禁用或权限配置权限。
+- `employee`：只访问工作台，无组织和账号管理权限。
+
+CRM 业务启用后再增加销售角色和客户数据范围策略；菜单权限、页面权限和 API 操作权限使用同一 `resource:action` 代码规范，但必须分别记录权限类型。前端菜单和按钮只改善可见性，后端 API 必须单独授权。
 
 角色只是默认权限模板；后续新增角色必须写明权限和数据范围，不在页面中硬编码角色名称。
 
 ### 6.3 数据范围
 
-数据范围由用户所有角色的有效范围合并，取更宽范围；`super_admin` 始终为 `all`。
+数据范围由用户所有角色的有效范围合并，取更宽范围；`system_admin` 始终为 `all`。
 
 - `self`：资源 `owner_id = current_user.id`，以及用户自己创建的跟进记录。
 - `department`：资源 `department_id = current_user.department_id`。
@@ -325,11 +329,15 @@ GET    /readyz
 
 ### Phase 1：工程骨架与身份基础
 
-交付物：前后端可启动骨架、Docker Compose、Caddy 代理、配置管理、PostgreSQL 连接、Alembic 初始迁移、统一响应/异常、日志和健康检查、登录/刷新/登出、用户与部门基础管理、CI 基线。验收：空库迁移成功；前端能通过 `/api/v1` 登录；access/refresh 轮换可验证；禁用用户无法登录；测试和构建门禁通过。
+交付物：前后端可启动骨架、Docker Compose、Caddy 代理、配置管理、PostgreSQL 连接、Alembic 初始迁移、统一响应/异常、日志和健康检查、认证基础。验收：空库迁移成功；前端能通过 `/api/v1` 登录；access/refresh 轮换可验证；测试和构建门禁通过。
 
-### Phase 2：RBAC 与数据范围
+### Phase 1.2：组织架构与 RBAC
 
-交付物：角色、权限、用户角色分配、部门树、四级数据范围、统一 scope 查询、角色变更审计。验收：四类角色的访问矩阵测试通过；列表、详情、更新、删除均无法越权；部门下属范围正确；越权不泄露资源存在性；管理员操作有审计记录。
+交付物：用户、部门、角色、权限和多对多关联；预置系统管理员、部门主管、普通员工角色；菜单/页面/API 权限目录；用户、部门、角色管理页面；首个系统管理员 bootstrap 命令。验收：管理员、主管、员工三种身份的菜单/API 权限矩阵测试通过；主管的用户查询遵守部门子树范围；员工无法访问管理 API；禁用用户会撤销 Refresh Token；系统角色权限不可被普通管理员修改；数据库在临时 PostgreSQL 环境执行 upgrade/downgrade 验证。
+
+### Phase 2：CRM 数据范围与业务授权
+
+交付物：销售角色、客户数据四级范围、统一 scope 查询和 CRM 业务资源授权。验收：列表、详情、更新、删除均无法越权；本人、部门、下属部门和全部范围正确；越权不泄露资源存在性；管理员操作有审计记录。
 
 ### Phase 3：客户与联系人
 

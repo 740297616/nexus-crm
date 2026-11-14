@@ -39,3 +39,5 @@ class UserResponse(BaseModel):
     department_id: str | None
     status: Literal["active", "disabled"]
     last_login_at: datetime | None
+    role_codes: list[str] = Field(default_factory=list)
+    permission_codes: list[str] = Field(default_factory=list)

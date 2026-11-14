@@ -11,6 +11,10 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false)
   const isAuthenticated = computed(() => Boolean(accessToken.value && user.value))
 
+  function hasPermission(permissionCode: string) {
+    return user.value?.permission_codes.includes(permissionCode) ?? false
+  }
+
   function applyTokens(tokens: AuthTokens) {
     accessToken.value = tokens.access_token
     refreshToken.value = tokens.refresh_token
@@ -86,6 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken,
     isLoading,
     isAuthenticated,
+    hasPermission,
     login,
     fetchCurrentUser,
     refreshSession,
@@ -99,8 +104,14 @@ export function initializeAuthTransport(
   store: ReturnType<typeof useAuthStore>,
   onExpired?: () => void,
 ) {
-  configureAuthTransport(() => {
-    store.clearSession()
-    onExpired?.()
-  })
+  configureAuthTransport(
+    () => {
+      store.clearSession()
+      onExpired?.()
+    },
+    (tokens) => {
+      store.accessToken = tokens.access_token
+      store.refreshToken = tokens.refresh_token
+    },
+  )
 }

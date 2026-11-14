@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { clearAuthTokens, getAccessToken, getRefreshToken, setAuthTokens } from '@/api/http'
+import { useAuthStore } from '@/stores/auth'
+import { createAppStore } from '@/stores/app'
 
 describe('authentication transport', () => {
   afterEach(() => {
@@ -21,5 +23,23 @@ describe('authentication transport', () => {
     clearAuthTokens()
     expect(getAccessToken()).toBeNull()
     expect(getRefreshToken()).toBeNull()
+  })
+
+  it('exposes current permissions for route, menu and action guards', () => {
+    const auth = useAuthStore(createAppStore())
+    auth.user = {
+      id: 'user-id',
+      username: 'employee',
+      email: null,
+      display_name: 'Employee',
+      department_id: null,
+      status: 'active',
+      last_login_at: null,
+      role_codes: ['employee'],
+      permission_codes: ['dashboard:menu', 'dashboard:page'],
+    }
+
+    expect(auth.hasPermission('dashboard:menu')).toBe(true)
+    expect(auth.hasPermission('users:menu')).toBe(false)
   })
 })

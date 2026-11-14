@@ -112,6 +112,11 @@ def test_change_password_revokes_sessions_and_allows_new_password(client: TestCl
         "/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
     )
     assert old_refresh.status_code == 401
+    old_access = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    )
+    assert old_access.status_code == 401
+    assert old_access.json()["error"]["code"] == "TOKEN_INVALID"
 
     assert login(client, password="CorrectPassword123!").status_code == 401
     assert login(client, password="NewPassword123!").status_code == 200

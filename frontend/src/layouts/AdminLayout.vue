@@ -6,9 +6,11 @@ import {
   Fold,
   Collection,
   Menu as MenuIcon,
+  OfficeBuilding,
   Setting,
   User,
   UserFilled,
+  Key,
 } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -21,13 +23,22 @@ const router = useRouter()
 const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => String(route.meta.title ?? '工作台'))
 
-const menuItems = [
-  { index: '/', title: '工作台', icon: DataAnalysis },
-  { index: '/customers', title: '客户管理', icon: Collection },
-  { index: '/contacts', title: '联系人管理', icon: User },
-  { index: '/follow-ups', title: '跟进记录', icon: UserFilled },
-  { index: '/settings', title: '系统设置', icon: Setting },
-]
+const menuItems = computed(() =>
+  [
+    { index: '/', title: '工作台', icon: DataAnalysis, permission: 'dashboard:menu' },
+    { index: '/users', title: '用户管理', icon: User, permission: 'users:menu' },
+    {
+      index: '/departments',
+      title: '部门管理',
+      icon: OfficeBuilding,
+      permission: 'departments:menu',
+    },
+    { index: '/roles', title: '角色权限', icon: Key, permission: 'roles:menu' },
+    { index: '/customers', title: '客户管理', icon: Collection, permission: 'customers:menu' },
+    { index: '/contacts', title: '联系人管理', icon: UserFilled, permission: 'contacts:menu' },
+    { index: '/settings', title: '系统设置', icon: Setting, permission: 'settings:menu' },
+  ].filter((item) => authStore.hasPermission(item.permission)),
+)
 
 function navigate(path: string) {
   void router.push(path)

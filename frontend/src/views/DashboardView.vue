@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 const cards = [
   { label: '客户总数', value: '—', hint: 'Phase 3 开始接入真实数据' },
   { label: '本周跟进', value: '—', hint: 'Phase 4 开始接入真实数据' },
@@ -32,7 +35,13 @@ const cards = [
         sub-title="当前页面仅提供布局和导航占位，不包含业务功能。"
       >
         <template #extra>
-          <el-button type="primary" @click="$router.push('/customers')">查看占位页面</el-button>
+          <el-button
+            v-if="authStore.hasPermission('customers:page')"
+            type="primary"
+            @click="$router.push('/customers')"
+          >
+            查看占位页面
+          </el-button>
         </template>
       </el-result>
     </el-card>
