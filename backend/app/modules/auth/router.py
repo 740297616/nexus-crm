@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.common.data_scope import data_scope_service
 from app.core.responses import success_response
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.schema import (
@@ -62,6 +63,7 @@ def me(request: Request, user=Depends(get_current_user), db: Session = Depends(g
             **UserResponse.model_validate(user).model_dump(mode="json"),
             "role_codes": get_role_codes_for_user(db, user.id),
             "permission_codes": sorted(get_permission_codes_for_user(db, user.id)),
+            "data_scope": data_scope_service.resolve(db, user).scope_code,
         },
         request.state.request_id,
     )

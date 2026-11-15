@@ -82,14 +82,17 @@ def test_three_roles_have_distinct_menu_and_api_permissions(
     employee_me = client.get("/api/v1/auth/me", headers=bearer(employee_token)).json()["data"]
 
     assert "system_admin" in admin_me["role_codes"]
+    assert admin_me["data_scope"] == "all"
     assert {"users:menu", "departments:menu", "roles:menu"} <= set(admin_me["permission_codes"])
     assert "users:create" in admin_me["permission_codes"]
 
     assert "department_manager" in manager_me["role_codes"]
+    assert manager_me["data_scope"] == "subtree"
     assert {"users:menu", "departments:menu", "roles:menu"} <= set(manager_me["permission_codes"])
     assert "users:create" not in manager_me["permission_codes"]
 
     assert "employee" in employee_me["role_codes"]
+    assert employee_me["data_scope"] == "self"
     assert {"dashboard:menu", "dashboard:page"} <= set(employee_me["permission_codes"])
     assert not {"users:menu", "departments:menu", "roles:menu"} & set(
         employee_me["permission_codes"]

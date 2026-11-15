@@ -4,13 +4,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.audit import add_audit_log
+from app.common.data_scope import DataScopeContext, data_scope_service
 from app.core.exceptions import AppException
 from app.modules.auth.model import User
 from app.modules.auth.repository import revoke_user_refresh_tokens
 from app.modules.auth.security import hash_password
-from app.modules.organizations.repository import get_department_ids_in_subtree
 from app.modules.roles.repository import (
-    get_effective_data_scope,
     get_permission_codes_for_user,
     get_role_codes_for_user,
 )
@@ -26,31 +25,12 @@ def _commit(db: Session) -> None:
         raise AppException("DUPLICATE_RESOURCE", "用户名或邮箱已存在", status_code=409) from exc
 
 
-def _visible_user_scope(db: Session, actor: User) -> tuple[set[str] | None, str | None]:
-    scope = get_effective_data_scope(db, actor.id)
-    if scope == "all":
-        return None, None
-    if scope == "self" or actor.department_id is None:
-        return None, actor.id
-    if scope == "subtree":
-        return get_department_ids_in_subtree(db, actor.department_id), None
-    return {actor.department_id}, None
+def _scope_context(db: Session, actor: User) -> DataScopeContext:
+    return data_scope_service.resolve(db, actor)
 
 
 def _assert_department_scope(db: Session, actor: User, department_id: str | None) -> None:
-    scope = get_effective_data_scope(db, actor.id)
-    if scope == "all":
-        return
-    if department_id is None:
-        raise AppException("DATA_SCOPE_DENIED", "只能管理授权部门中的用户", status_code=403)
-    if scope == "subtree":
-        permitted = (
-            get_department_ids_in_subtree(db, actor.department_id) if actor.department_id else set()
-        )
-    else:
-        permitted = {actor.department_id} if actor.department_id else set()
-    if department_id not in permitted:
-        raise AppException("DATA_SCOPE_DENIED", "超出部门数据范围", status_code=403)
+    data_scope_service.assert_department_access(_scope_context(db, actor), department_id)
 
 
 def list_users_for_actor(
@@ -62,15 +42,14 @@ def list_users_for_actor(
     page: int,
     page_size: int,
 ) -> tuple[list[User], int]:
-    visible_ids, self_user_id = _visible_user_scope(db, actor)
-    if department_id is not None and visible_ids is not None and department_id not in visible_ids:
-        raise AppException("DATA_SCOPE_DENIED", "超出部门数据范围", status_code=403)
+    scope = _scope_context(db, actor)
+    if department_id is not None:
+        data_scope_service.assert_department_access(scope, department_id)
     items, total = list_users(
         db,
         search=search,
         department_id=department_id,
-        visible_department_ids=visible_ids,
-        self_user_id=self_user_id,
+        scope=scope,
         offset=(page - 1) * page_size,
         limit=page_size,
     )
@@ -78,15 +57,14 @@ def list_users_for_actor(
 
 
 def get_user_for_actor(db: Session, *, actor: User, user_id: str) -> User:
-    visible_ids, self_user_id = _visible_user_scope(db, actor)
-    user = get_user(db, user_id)
-    if user is None:
-        raise AppException("RESOURCE_NOT_FOUND", "用户不存在", status_code=404)
-    if self_user_id is not None and user.id != self_user_id:
-        raise AppException("RESOURCE_NOT_FOUND", "用户不存在", status_code=404)
-    if visible_ids is not None and user.department_id not in visible_ids:
-        raise AppException("RESOURCE_NOT_FOUND", "用户不存在", status_code=404)
-    return user
+    scope = _scope_context(db, actor)
+    user = get_user(db, user_id, scope=scope)
+    return data_scope_service.assert_access(
+        user,
+        scope,
+        owner_field="id",
+        message="用户不存在",
+    )
 
 
 def create_user(
@@ -316,6 +294,9 @@ def user_response(db: Session, user: User) -> dict:
         "department_name": user.department.name if user.department else None,
         "status": user.status,
         "role_codes": get_role_codes_for_user(db, user.id),
+        "data_scope": data_scope_service.effective_scope(
+            {role.data_scope for role in user.roles}
+        ).value,
         "last_login_at": user.last_login_at,
         "created_at": user.created_at,
         "updated_at": user.updated_at,

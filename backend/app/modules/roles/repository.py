@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.common.data_scope import data_scope_service
 from app.modules.auth.model import User
 from app.modules.roles.model import Permission, Role
 
@@ -39,9 +40,6 @@ def get_roles_for_user(db: Session, user_id: str) -> list[Role]:
 
 
 def get_effective_data_scope(db: Session, user_id: str) -> str:
-    statement = select(Role.data_scope).select_from(User).join(User.roles).where(User.id == user_id)
-    scopes = set(db.scalars(statement).all())
-    for scope in ("all", "subtree", "department", "self"):
-        if scope in scopes:
-            return scope
-    return "self"
+    """Backward-compatible scalar API backed by the shared scope service."""
+
+    return data_scope_service.get_effective_data_scope(db, user_id)

@@ -41,3 +41,4 @@ class UserResponse(BaseModel):
     last_login_at: datetime | None
     role_codes: list[str] = Field(default_factory=list)
     permission_codes: list[str] = Field(default_factory=list)
+    data_scope: Literal["self", "department", "subtree", "all"] = "self"

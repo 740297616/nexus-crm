@@ -38,6 +38,7 @@ class UserResponse(BaseModel):
     department_name: str | None = None
     status: Literal["active", "disabled"]
     role_codes: list[str] = Field(default_factory=list)
+    data_scope: Literal["self", "department", "subtree", "all"] = "self"
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime

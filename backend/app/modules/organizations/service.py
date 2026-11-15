@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.audit import add_audit_log
+from app.common.data_scope import data_scope_service
 from app.core.exceptions import AppException
 from app.modules.auth.model import User
 from app.modules.organizations.model import Department
@@ -15,18 +16,12 @@ from app.modules.organizations.repository import (
     list_departments,
 )
 from app.modules.organizations.schema import DepartmentCreate, DepartmentUpdate
-from app.modules.roles.repository import get_effective_data_scope
 
 
 def visible_department_ids(db: Session, current_user: User) -> set[str] | None:
-    scope = get_effective_data_scope(db, current_user.id)
-    if scope == "all":
-        return None
-    if current_user.department_id is None:
-        return set()
-    if scope == "subtree":
-        return get_department_ids_in_subtree(db, current_user.department_id)
-    return {current_user.department_id}
+    context = data_scope_service.resolve(db, current_user)
+    department_ids = context.organization_department_ids()
+    return set(department_ids) if department_ids is not None else None
 
 
 def _commit(db: Session) -> None:

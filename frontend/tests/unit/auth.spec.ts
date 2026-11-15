@@ -37,6 +37,7 @@ describe('authentication transport', () => {
       last_login_at: null,
       role_codes: ['employee'],
       permission_codes: ['dashboard:menu', 'dashboard:page'],
+      data_scope: 'self',
     }
 
     expect(auth.hasPermission('dashboard:menu')).toBe(true)

@@ -22,6 +22,7 @@ export interface CurrentUser {
   last_login_at: string | null
   role_codes: string[]
   permission_codes: string[]
+  data_scope: DataScope
 }
 
 export interface UserRecord extends Omit<CurrentUser, 'permission_codes'> {

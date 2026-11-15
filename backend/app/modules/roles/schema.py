@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.common.data_scope import DataScope as DataScopeValue
 
 DataScope = Literal["self", "department", "subtree", "all"]
 
@@ -13,11 +15,21 @@ class RoleCreate(BaseModel):
     data_scope: DataScope = "self"
     permission_codes: list[str] = Field(default_factory=list)
 
+    @field_validator("data_scope", mode="before")
+    @classmethod
+    def normalize_data_scope(cls, value: str) -> str:
+        return DataScopeValue.from_value(value).value
+
 
 class RoleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=500)
     data_scope: DataScope | None = None
+
+    @field_validator("data_scope", mode="before")
+    @classmethod
+    def normalize_data_scope(cls, value: str | None) -> str | None:
+        return None if value is None else DataScopeValue.from_value(value).value
 
 
 class RolePermissionsUpdate(BaseModel):
