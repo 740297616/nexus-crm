@@ -11,6 +11,7 @@ import {
   User,
   UserFilled,
   Key,
+  Bell,
 } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -35,6 +36,8 @@ const menuItems = computed(() =>
     },
     { index: '/roles', title: '角色权限', icon: Key, permission: 'roles:menu' },
     { index: '/customers', title: '客户管理', icon: Collection, permission: 'customers:menu' },
+    { index: '/follow-ups', title: '跟进记录', icon: UserFilled, permission: 'follow_ups:menu' },
+    { index: '/reminders', title: '我的待办', icon: Bell, permission: 'reminders:menu' },
     { index: '/contacts', title: '联系人管理', icon: UserFilled, permission: 'contacts:menu' },
     { index: '/settings', title: '系统设置', icon: Setting, permission: 'settings:menu' },
   ].filter((item) => authStore.hasPermission(item.permission)),

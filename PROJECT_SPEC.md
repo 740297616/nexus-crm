@@ -145,8 +145,11 @@ users 1──N customers (owner_id)
 departments 1──N customers (department_id)
 customers 1──N contacts
 customers N──N tags (customer_tags)
-customers 1──N follow_ups
-contacts 0..1──N follow_ups
+customers 1──N follow_up_records
+contacts 0..1──N follow_up_records
+users 1──N follow_up_records
+users 1──N reminders
+customers 0..N reminders
 customers N──N users (customer_collaborators)
 customers 1──N customer_ownership_history
 users 1──N customer_ownership_history (transferred_by)
@@ -171,14 +174,15 @@ users 1──N refresh_tokens
 | `contacts` | `id`, `customer_id`, `name`, `title`, `phone`, `email`, `contact_method`, `is_primary`, `remark`, `created_by`, `created_at`, `updated_at`, `deleted_at`；同一客户最多一个有效主要联系人。 |
 | `tags` | `id`, `name`, `name_key`, `description`, `created_by`, `created_at`, `updated_at`, `deleted_at`；`name_key` 用于大小写不敏感的名称唯一性，删除采用软删除。 |
 | `customer_tags` | `id`, `customer_id`, `tag_id`, `created_by`, `created_at`, `updated_at`；客户与标签联合唯一，客户或标签软删除后关系保留但默认隐藏。 |
-| `follow_ups` | `id`, `customer_id`, `contact_id` 可空, `user_id`, `followed_at`, `method`, `content`, `result`, `next_follow_up_at` 可空；客户必须存在，联系人必须属于该客户。 |
+| `follow_up_records` | `id`, `customer_id`, `contact_id` 可空, `user_id`（真实跟进人）, `followed_at`, `method`（phone/visit/wechat/email/other）, `content`, `result`, `next_follow_up_at` 可空, `created_at`, `updated_at`；不提供物理删除，客户必须存在，联系人必须属于该客户。 |
+| `reminders` | `id`, `user_id`（待办归属人）, `customer_id` 可空, `follow_up_record_id` 可空, `title`, `content` 可空, `remind_at`, `status`（pending/completed/cancelled）, `completed_at`/`cancelled_at` 可空, `created_by`, `created_at`, `updated_at`；数据库保存，逾期由 pending 且 remind_at 小于当前 UTC 时间计算。首版提供应用内到期/逾期查询，提醒页面以简单定时轮询触发站内提示，外部通知渠道未纳入范围。 |
 | `customer_collaborators` | `customer_id`, `user_id`, `granted_by`, `created_at`；用于在角色数据范围之外显式共享客户，联合主键。 |
 | `refresh_tokens` | `id`, `user_id`, `token_hash`, `expires_at`, `revoked_at`, `replaced_by_id`, `created_at`, `last_used_at`；只存哈希，支持轮换和撤销。 |
 | `audit_logs` | `id`, `actor_user_id` 可空, `action`, `resource_type`, `resource_id` 可空, `before_data` JSONB 可空, `after_data` JSONB 可空, `request_id`, `ip_address`, `user_agent`, `created_at`；只追加，不提供业务 API 修改/删除。 |
 
 ### 4.3 索引、完整性和并发
 
-- `users(username)`, `users(email)`, `customers(customer_no)`, `customers(owner_id, status)`, `customers(department_id, status)`, `customers(name)`, `contacts(customer_id, deleted_at)`, `tags(name_key)`, `customer_tags(customer_id, tag_id)`, `follow_ups(customer_id, followed_at DESC)`, `customer_ownership_history(customer_id, created_at DESC)`, `audit_logs(resource_type, resource_id, created_at DESC)` 建立索引。
+- `users(username)`, `users(email)`, `customers(customer_no)`, `customers(owner_id, status)`, `customers(department_id, status)`, `customers(name)`, `contacts(customer_id, deleted_at)`, `tags(name_key)`, `customer_tags(customer_id, tag_id)`, `follow_up_records(customer_id, followed_at DESC)`, `follow_up_records(user_id, followed_at DESC)`, `reminders(user_id, status, remind_at)`, `customer_ownership_history(customer_id, created_at DESC)`, `audit_logs(resource_type, resource_id, created_at DESC)` 建立索引。
 - 客户名称使用普通索引或前缀查询；首版不承诺模糊搜索的全文检索能力。
 - 外键默认使用 `RESTRICT` 或明确的软删除策略，避免删除父记录导致业务历史丢失。
 - 客户、联系人、跟进记录写入必须在同一事务内完成关联校验；出现并发更新时返回 `409 CONFLICT`。
@@ -276,7 +280,13 @@ PATCH/DELETE          /tags/{tag_id}
 GET    /customers/{customer_id}/tags
 POST   /customers/{customer_id}/tags
 DELETE /customers/{customer_id}/tags/{tag_id}
-GET/POST/PATCH/DELETE /customers/{customer_id}/follow-ups
+GET/POST/PATCH /customers/{customer_id}/follow-ups
+GET/POST/PATCH /reminders
+POST                   /reminders/{reminder_id}/complete
+POST                   /reminders/{reminder_id}/cancel
+GET                    /reminders/mine
+GET                    /reminders/due
+GET                    /reminders/overdue
 POST                   /customers/{customer_id}/collaborators
 DELETE                 /customers/{customer_id}/collaborators/{user_id}
 GET    /customers/import/template
@@ -303,7 +313,7 @@ GET    /readyz
 
 ### 6.2 RBAC
 
-权限采用稳定代码，例如 `customers:read`、`customers:create`、`customers:update`、`customers:delete`、`contacts:read`、`contacts:create`、`tags:read`、`tags:bind`、`follow_up:read`、`user:manage`、`audit_log:read`。角色分配权限，用户分配角色；权限判断集中在依赖和 Service 层。
+权限采用稳定代码，例如 `customers:read`、`customers:create`、`customers:update`、`customers:delete`、`contacts:read`、`contacts:create`、`tags:read`、`tags:bind`、`follow_ups:read`、`follow_ups:create`、`follow_ups:update`、`reminders:read`、`reminders:create`、`reminders:update`、`reminders:complete`、`reminders:cancel`、`user:manage`、`audit_log:read`。角色分配权限，用户分配角色；权限判断集中在依赖和 Service 层。
 
 当前组织与 RBAC 基线角色：
 
@@ -329,13 +339,13 @@ CRM 业务启用后再增加销售角色和客户数据范围策略；菜单权�
 
 ### 6.4 审计
 
-登录成功/失败、令牌撤销、密码和角色变更、用户启停用、客户/联系人/跟进创建修改删除、数据共享、批量操作都写 `audit_logs`。审计写入与业务变更使用同一事务；审计失败时业务事务失败。敏感字段（密码、令牌）绝不写入 before/after。
+登录成功/失败、令牌撤销、密码和角色变更、用户启停用、客户/联系人/跟进创建修改、提醒创建编辑完成取消、数据共享、批量操作都写 `audit_logs`。跟进记录不提供物理删除接口；提醒只通过状态变更完成或取消。审计写入与业务变更使用同一事务；审计失败时业务事务失败。敏感字段（密码、令牌）绝不写入 before/after。
 
 ## 7. 测试与质量门禁
 
 - 后端：Ruff format/check、Pytest 单元测试（Service、权限、Schema）和集成测试（API + PostgreSQL）。
 - 前端：ESLint、Prettier check、TypeScript strict、Vitest（状态、API 映射、关键组件）和 Playwright（登录、客户 CRUD、数据越权冒烟）。
-- 关键业务必须覆盖：登录/刷新/登出、数据范围边界、客户联系人关联校验、跟进创建、角色变更审计、禁用用户不可登录。
+- 关键业务必须覆盖：登录/刷新/登出、数据范围边界、客户联系人关联校验、跟进创建和修改权限、提醒到期/逾期/完成/取消、角色变更审计、禁用用户不可登录。
 - CI 至少执行格式检查、Lint、类型检查、单元测试、迁移升级测试和构建；主分支禁止带失败门禁的合并。
 - 日志包含 `request_id`、用户 ID（若已认证）、路由、状态码和耗时；生产日志禁止密码、token、完整个人敏感信息。
 
@@ -369,13 +379,13 @@ CRM 业务启用后再增加销售角色和客户数据范围策略；菜单权�
 
 交付物：受权限保护的 `.xlsx` 导入模板下载、字段白名单和映射、后端字段校验、客户编号重复检查、客户名称重复提醒、公式注入防护、逐行错误报告、分批导入、按当前筛选和数据范围导出。验收：文件大小和格式限制有效；负责人只能通过用户名或邮箱解析且必须经过服务端数据范围校验；导入错误不会写入无效客户；重复编号、空必填字段和公式数据可定位到行；名称重复只产生提醒；导出不能读取或输出范围外客户；导入和导出审计事件、模板和 API 契约测试通过。
 
-### Phase 3：客户共享
+### Phase 3：客户跟进与提醒
 
-交付物：客户显式共享、共享读取范围和客户详情共享管理。验收：共享只能扩大读取范围，修改/删除仍遵守写权限和 Service 规则；共享撤销、越权、审计和并发冲突可测试；前端共享流程通过。
+交付物：`follow_up_records` 跟进记录、客户跟进时间线、下次跟进提醒、数据库提醒状态、我的待办、到期/逾期查询和前端详情集成。验收：跟进只能关联可见客户及其有效联系人；记录真实操作用户；普通员工不能修改他人记录；跟进不提供物理删除；提醒创建、编辑、完成、取消和到期/逾期查询遵守用户数据范围；关键写入带审计；关联和权限测试通过。
 
-### Phase 4：跟进与基础仪表盘
+### Phase 4：客户共享与基础仪表盘
 
-交付物：跟进记录、下次跟进、客户时间线、基础统计接口和 ECharts 页面。验收：跟进只能关联可见客户及其联系人；统计结果遵守当前用户数据范围；时间和时区显示正确；关键写入带审计；接口性能达到本规范目标。
+交付物：客户显式共享、共享读取范围、客户详情共享管理、基础统计接口和 ECharts 页面。验收：共享只能扩大读取范围，修改/删除仍遵守写权限和 Service 规则；统计结果遵守当前用户数据范围；共享撤销、越权、审计和并发冲突可测试；接口性能达到本规范目标。
 
 ### Phase 5：发布加固
 

@@ -130,6 +130,30 @@ PERMISSION_CATALOG = (
     PermissionDefinition("tags:delete", "删除标签", "tags", "delete", "api", "软删除客户标签"),
     PermissionDefinition("tags:bind", "绑定标签", "tags", "bind", "api", "为客户绑定标签"),
     PermissionDefinition("tags:unbind", "解绑标签", "tags", "unbind", "api", "移除客户标签"),
+    PermissionDefinition(
+        "follow_ups:menu", "跟进记录菜单", "follow_ups", "menu", "menu", "显示跟进记录入口"
+    ),
+    PermissionDefinition(
+        "follow_ups:page", "跟进记录页面", "follow_ups", "page", "page", "访问跟进记录页面"
+    ),
+    PermissionDefinition(
+        "follow_ups:read", "查看跟进记录", "follow_ups", "read", "api", "查看客户跟进记录"
+    ),
+    PermissionDefinition(
+        "follow_ups:create", "创建跟进记录", "follow_ups", "create", "api", "创建客户跟进记录"
+    ),
+    PermissionDefinition(
+        "follow_ups:update", "编辑跟进记录", "follow_ups", "update", "api", "编辑客户跟进记录"
+    ),
+    PermissionDefinition("reminders:menu", "提醒菜单", "reminders", "menu", "menu", "显示提醒入口"),
+    PermissionDefinition("reminders:page", "提醒页面", "reminders", "page", "page", "访问提醒页面"),
+    PermissionDefinition("reminders:read", "查看提醒", "reminders", "read", "api", "查看提醒"),
+    PermissionDefinition("reminders:create", "创建提醒", "reminders", "create", "api", "创建提醒"),
+    PermissionDefinition("reminders:update", "编辑提醒", "reminders", "update", "api", "编辑提醒"),
+    PermissionDefinition(
+        "reminders:complete", "完成提醒", "reminders", "complete", "api", "完成提醒"
+    ),
+    PermissionDefinition("reminders:cancel", "取消提醒", "reminders", "cancel", "api", "取消提醒"),
 )
 
 ROLE_CATALOG = {
@@ -192,6 +216,18 @@ ROLE_CATALOG = {
             "tags:delete",
             "tags:bind",
             "tags:unbind",
+            "follow_ups:menu",
+            "follow_ups:page",
+            "follow_ups:read",
+            "follow_ups:create",
+            "follow_ups:update",
+            "reminders:menu",
+            "reminders:page",
+            "reminders:read",
+            "reminders:create",
+            "reminders:update",
+            "reminders:complete",
+            "reminders:cancel",
         ),
     },
     "sales": {
@@ -216,6 +252,18 @@ ROLE_CATALOG = {
             "tags:read",
             "tags:bind",
             "tags:unbind",
+            "follow_ups:menu",
+            "follow_ups:page",
+            "follow_ups:read",
+            "follow_ups:create",
+            "follow_ups:update",
+            "reminders:menu",
+            "reminders:page",
+            "reminders:read",
+            "reminders:create",
+            "reminders:update",
+            "reminders:complete",
+            "reminders:cancel",
         ),
     },
 }

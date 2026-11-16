@@ -3,9 +3,9 @@ import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const cards = [
-  { label: '客户总数', value: '—', hint: 'Phase 3 开始接入真实数据' },
-  { label: '本周跟进', value: '—', hint: 'Phase 4 开始接入真实数据' },
-  { label: '待跟进客户', value: '—', hint: '数据权限模块完成后展示' },
+  { label: '客户总数', value: '—', hint: '基础统计将在后续仪表盘 Phase 接入' },
+  { label: '本周跟进', value: '—', hint: '基础统计将在后续仪表盘 Phase 接入' },
+  { label: '待跟进客户', value: '—', hint: '基础统计将在后续仪表盘 Phase 接入' },
 ]
 </script>
 
@@ -17,7 +17,7 @@ const cards = [
         <h1>工作台</h1>
         <p class="page-description">项目基础设施已就绪，业务模块将在后续 Phase 接入。</p>
       </div>
-      <el-tag type="info" effect="plain">Phase 0</el-tag>
+      <el-tag type="info" effect="plain">Phase 3</el-tag>
     </div>
 
     <div class="stat-grid">
@@ -32,7 +32,7 @@ const cards = [
       <el-result
         icon="success"
         title="基础管理后台已启动"
-        sub-title="当前页面仅提供布局和导航占位，不包含业务功能。"
+        sub-title="客户、联系人、跟进和提醒模块已接入，统计仪表盘将在后续阶段完善。"
       >
         <template #extra>
           <el-button
@@ -40,7 +40,7 @@ const cards = [
             type="primary"
             @click="$router.push('/customers')"
           >
-            查看占位页面
+            查看客户
           </el-button>
         </template>
       </el-result>

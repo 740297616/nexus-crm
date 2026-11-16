@@ -13,6 +13,12 @@ import {
 } from '@/api/contacts'
 import { deleteCustomer, getCustomer } from '@/api/customers'
 import {
+  createFollowUp,
+  listFollowUps,
+  updateFollowUp,
+  type FollowUpPayload,
+} from '@/api/followups'
+import {
   bindCustomerTag,
   createTag,
   deleteTag,
@@ -23,7 +29,14 @@ import {
   type TagPayload,
 } from '@/api/tags'
 import { useAuthStore } from '@/stores/auth'
-import type { ContactRecord, CustomerDetail, CustomerTagRecord, TagRecord } from '@/types/api'
+import type {
+  ContactRecord,
+  CustomerDetail,
+  CustomerTagRecord,
+  FollowUpMethod,
+  FollowUpRecord,
+  TagRecord,
+} from '@/types/api'
 
 interface ContactForm {
   name: string
@@ -38,6 +51,15 @@ interface ContactForm {
 interface TagForm {
   name: string
   description: string
+}
+
+interface FollowUpForm {
+  contact_id: string
+  method: FollowUpMethod
+  content: string
+  followed_at: string
+  result: string
+  next_follow_up_at: string
 }
 
 const route = useRoute()
@@ -67,6 +89,9 @@ const canTagManage = computed(
     authStore.hasPermission('tags:update') ||
     authStore.hasPermission('tags:delete'),
 )
+const canFollowUpRead = computed(() => authStore.hasPermission('follow_ups:read'))
+const canFollowUpCreate = computed(() => authStore.hasPermission('follow_ups:create'))
+const canFollowUpUpdate = computed(() => authStore.hasPermission('follow_ups:update'))
 
 const contacts = ref<ContactRecord[]>([])
 const contactsTotal = ref(0)
@@ -118,6 +143,24 @@ const availableTags = computed(() => {
 const canEditTag = computed(() => authStore.hasPermission('tags:update'))
 const canDeleteTag = computed(() => authStore.hasPermission('tags:delete'))
 
+const followUps = ref<FollowUpRecord[]>([])
+const followUpsTotal = ref(0)
+const followUpsLoading = ref(false)
+const followUpsError = ref('')
+const followUpDialogVisible = ref(false)
+const followUpSaving = ref(false)
+const followUpFormRef = ref<FormInstance>()
+const editingFollowUpId = ref<string | null>(null)
+const followUpForm = reactive<FollowUpForm>(emptyFollowUpForm())
+const followUpRules: FormRules<FollowUpForm> = {
+  method: [{ required: true, message: '请选择跟进方式', trigger: 'change' }],
+  content: [
+    { required: true, message: '请输入跟进内容', trigger: 'blur' },
+    { max: 10000, message: '跟进内容不能超过 10000 个字符', trigger: 'blur' },
+  ],
+  followed_at: [{ required: true, message: '请选择跟进时间', trigger: 'change' }],
+}
+
 function emptyContactForm(): ContactForm {
   return {
     name: '',
@@ -134,6 +177,26 @@ function emptyTagForm(): TagForm {
   return { name: '', description: '' }
 }
 
+function emptyFollowUpForm(): FollowUpForm {
+  return {
+    contact_id: '',
+    method: 'phone',
+    content: '',
+    followed_at: toDateTimeLocal(new Date()),
+    result: '',
+    next_follow_up_at: '',
+  }
+}
+
+function toDateTimeLocal(value: Date) {
+  const offset = value.getTimezoneOffset() * 60_000
+  return new Date(value.getTime() - offset).toISOString().slice(0, 16)
+}
+
+function toIso(value: string) {
+  return value ? new Date(value).toISOString() : null
+}
+
 function nullable(value: string) {
   return value.trim() || null
 }
@@ -144,6 +207,16 @@ function formatDate(value: string) {
 
 function levelLabel(level: CustomerDetail['level']) {
   return { A: 'A 重点', B: 'B 优先', C: 'C 常规', D: 'D 观察' }[level]
+}
+
+function followUpMethodLabel(method: FollowUpMethod) {
+  return {
+    phone: '电话',
+    visit: '上门拜访',
+    wechat: '微信',
+    email: '邮件',
+    other: '其他',
+  }[method]
 }
 
 async function loadContacts() {
@@ -188,17 +261,86 @@ async function loadTags() {
   }
 }
 
+async function loadFollowUps() {
+  if (!customer.value || !canFollowUpRead.value) return
+  followUpsLoading.value = true
+  followUpsError.value = ''
+  try {
+    const response = await listFollowUps(customerId.value, { page: 1, page_size: 100 })
+    followUps.value = response.data.items
+    followUpsTotal.value = response.data.total
+  } catch {
+    followUpsError.value = '跟进记录加载失败，请重试。'
+  } finally {
+    followUpsLoading.value = false
+  }
+}
+
 async function loadCustomer() {
   loading.value = true
   loadError.value = ''
   try {
     customer.value = await getCustomer(customerId.value)
-    await Promise.all([loadContacts(), loadTags()])
+    await Promise.all([loadContacts(), loadTags(), loadFollowUps()])
   } catch {
     customer.value = null
     loadError.value = '客户不存在、已删除或当前账号无权查看。'
   } finally {
     loading.value = false
+  }
+}
+
+function openFollowUpCreate() {
+  editingFollowUpId.value = null
+  Object.assign(followUpForm, emptyFollowUpForm())
+  followUpDialogVisible.value = true
+}
+
+function openFollowUpEdit(record: FollowUpRecord) {
+  editingFollowUpId.value = record.id
+  Object.assign(followUpForm, {
+    contact_id: record.contact_id ?? '',
+    method: record.method,
+    content: record.content,
+    followed_at: toDateTimeLocal(new Date(record.followed_at)),
+    result: record.result ?? '',
+    next_follow_up_at: record.next_follow_up_at
+      ? toDateTimeLocal(new Date(record.next_follow_up_at))
+      : '',
+  })
+  followUpDialogVisible.value = true
+}
+
+async function saveFollowUp() {
+  if (!followUpFormRef.value) return
+  try {
+    await followUpFormRef.value.validate()
+  } catch {
+    return
+  }
+  const payload: FollowUpPayload = {
+    contact_id: followUpForm.contact_id || null,
+    method: followUpForm.method,
+    content: followUpForm.content.trim(),
+    followed_at: toIso(followUpForm.followed_at) ?? new Date().toISOString(),
+    result: nullable(followUpForm.result),
+    next_follow_up_at: toIso(followUpForm.next_follow_up_at),
+  }
+  followUpSaving.value = true
+  try {
+    if (editingFollowUpId.value) {
+      await updateFollowUp(customerId.value, editingFollowUpId.value, payload)
+      ElMessage.success('跟进记录已更新')
+    } else {
+      await createFollowUp(customerId.value, payload)
+      ElMessage.success('跟进记录已创建')
+    }
+    followUpDialogVisible.value = false
+    await loadFollowUps()
+  } catch {
+    ElMessage.error('跟进记录保存失败，请检查权限、时间和关联联系人。')
+  } finally {
+    followUpSaving.value = false
   }
 }
 
@@ -632,6 +774,67 @@ onMounted(loadCustomer)
         </div>
       </section>
 
+      <section v-if="canFollowUpRead" class="customer-detail-section">
+        <div class="section-heading-row">
+          <div>
+            <h2>跟进时间线</h2>
+            <p>记录客户沟通过程和下次跟进安排</p>
+          </div>
+          <el-button v-if="canFollowUpCreate" type="primary" @click="openFollowUpCreate"
+            >新增跟进</el-button
+          >
+        </div>
+        <el-alert
+          v-if="followUpsError"
+          :title="followUpsError"
+          type="error"
+          show-icon
+          :closable="false"
+        >
+          <template #default
+            ><el-button link type="primary" @click="loadFollowUps">重试</el-button></template
+          >
+        </el-alert>
+        <el-skeleton v-if="followUpsLoading" :rows="4" animated />
+        <el-empty v-else-if="!followUps.length" description="暂无跟进记录" />
+        <el-timeline v-else class="follow-up-timeline">
+          <el-timeline-item
+            v-for="record in followUps"
+            :key="record.id"
+            :timestamp="formatDate(record.followed_at)"
+            placement="top"
+          >
+            <div class="timeline-heading">
+              <div>
+                <el-tag size="small" effect="plain">{{
+                  followUpMethodLabel(record.method)
+                }}</el-tag>
+                <strong>{{ record.user_name }}</strong>
+                <span v-if="record.contact_name" class="related-muted"
+                  >联系 {{ record.contact_name }}</span
+                >
+              </div>
+              <el-button
+                v-if="canFollowUpUpdate"
+                link
+                type="primary"
+                @click="openFollowUpEdit(record)"
+              >
+                编辑
+              </el-button>
+            </div>
+            <p class="timeline-content">{{ record.content }}</p>
+            <p v-if="record.result" class="timeline-result">结果：{{ record.result }}</p>
+            <p v-if="record.next_follow_up_at" class="timeline-result">
+              下次跟进：{{ formatDate(record.next_follow_up_at) }}
+            </p>
+          </el-timeline-item>
+        </el-timeline>
+        <div v-if="followUpsTotal > followUps.length" class="timeline-more-hint">
+          仅显示最近 100 条记录
+        </div>
+      </section>
+
       <section class="customer-detail-section">
         <div class="section-heading-row">
           <div>
@@ -671,6 +874,69 @@ onMounted(loadCustomer)
         <el-empty v-else description="暂无负责人变更记录" />
       </section>
     </template>
+
+    <el-dialog
+      v-model="followUpDialogVisible"
+      :title="editingFollowUpId ? '编辑跟进记录' : '新增跟进记录'"
+      width="680px"
+    >
+      <el-form
+        ref="followUpFormRef"
+        :model="followUpForm"
+        :rules="followUpRules"
+        label-position="top"
+      >
+        <div class="form-grid">
+          <el-form-item label="跟进方式" prop="method" required>
+            <el-select v-model="followUpForm.method" class="full-width">
+              <el-option label="电话跟进" value="phone" />
+              <el-option label="上门拜访" value="visit" />
+              <el-option label="微信沟通" value="wechat" />
+              <el-option label="邮件沟通" value="email" />
+              <el-option label="其他方式" value="other" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="关联联系人">
+            <el-select v-model="followUpForm.contact_id" clearable class="full-width">
+              <el-option
+                v-for="contact in contacts"
+                :key="contact.id"
+                :label="contact.name"
+                :value="contact.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="跟进时间" prop="followed_at" required>
+            <el-input v-model="followUpForm.followed_at" type="datetime-local" />
+          </el-form-item>
+          <el-form-item label="下次跟进时间">
+            <el-input v-model="followUpForm.next_follow_up_at" type="datetime-local" />
+          </el-form-item>
+        </div>
+        <el-form-item label="跟进内容" prop="content" required>
+          <el-input
+            v-model="followUpForm.content"
+            type="textarea"
+            :rows="5"
+            maxlength="10000"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="跟进结果">
+          <el-input
+            v-model="followUpForm.result"
+            type="textarea"
+            :rows="3"
+            maxlength="2000"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="followUpDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="followUpSaving" @click="saveFollowUp">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="contactDialogVisible"

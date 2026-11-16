@@ -567,6 +567,43 @@ h1 {
   justify-content: flex-end;
 }
 
+.follow-up-timeline {
+  padding: 8px 8px 0;
+}
+
+.timeline-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timeline-heading > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.timeline-content,
+.timeline-result {
+  color: #374151;
+  line-height: 1.6;
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+}
+
+.timeline-result {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.timeline-more-hint {
+  color: #9ca3af;
+  font-size: 12px;
+  padding: 4px 0 0 28px;
+}
+
 @media (max-width: 1200px) {
   .customer-filters {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -80,8 +80,14 @@ const router = createRouter({
         {
           path: 'follow-ups',
           name: 'follow-ups',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/FollowUpsView.vue'),
           meta: { title: '跟进记录', permission: 'follow_ups:page' },
+        },
+        {
+          path: 'reminders',
+          name: 'reminders',
+          component: () => import('@/views/RemindersView.vue'),
+          meta: { title: '我的待办', permission: 'reminders:page' },
         },
         {
           path: 'settings',

@@ -183,6 +183,46 @@ export interface CustomerNameMatch {
   owner_name: string
 }
 
+export type FollowUpMethod = 'phone' | 'visit' | 'wechat' | 'email' | 'other'
+
+export interface FollowUpRecord {
+  id: string
+  customer_id: string
+  contact_id: string | null
+  contact_name: string | null
+  user_id: string
+  user_name: string
+  method: FollowUpMethod
+  content: string
+  followed_at: string
+  result: string | null
+  next_follow_up_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ReminderStatus = 'pending' | 'completed' | 'cancelled'
+
+export interface ReminderRecord {
+  id: string
+  user_id: string
+  user_name: string
+  customer_id: string | null
+  customer_name: string | null
+  follow_up_record_id: string | null
+  title: string
+  content: string | null
+  remind_at: string
+  status: ReminderStatus
+  completed_at: string | null
+  cancelled_at: string | null
+  created_by: string
+  created_by_name: string
+  created_at: string
+  updated_at: string
+  is_overdue: boolean
+}
+
 export interface CustomerImportIssue {
   row: number
   field: string | null
