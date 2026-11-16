@@ -86,3 +86,63 @@ export interface PageData<T> {
   items: T[]
   total: number
 }
+
+export type CustomerLevel = 'A' | 'B' | 'C' | 'D'
+export type CustomerStatus = 'active' | 'inactive'
+
+export interface CustomerRecord {
+  id: string
+  customer_no: string
+  name: string
+  owner_id: string
+  owner_name: string
+  department_id: string
+  department_name: string
+  source: string | null
+  industry: string | null
+  level: CustomerLevel
+  status: CustomerStatus
+  phone: string | null
+  email: string | null
+  address: string | null
+  description: string | null
+  created_by: string
+  created_by_name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerOwnershipHistoryRecord {
+  id: string
+  action: 'assigned' | 'transferred'
+  previous_owner_id: string | null
+  previous_owner_name: string | null
+  previous_department_id: string | null
+  new_owner_id: string
+  new_owner_name: string
+  new_department_id: string
+  new_department_name: string
+  transferred_by: string
+  transferred_by_name: string
+  reason: string | null
+  created_at: string
+}
+
+export interface CustomerDetail extends CustomerRecord {
+  ownership_history: CustomerOwnershipHistoryRecord[]
+}
+
+export interface CustomerAssignee {
+  id: string
+  username: string
+  display_name: string
+  department_id: string
+  department_name: string
+}
+
+export interface CustomerNameMatch {
+  id: string
+  customer_no: string
+  name: string
+  owner_name: string
+}

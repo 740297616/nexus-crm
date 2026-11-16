@@ -8,6 +8,7 @@ from app.db.base import Base
 from app.main import app
 from app.modules.auth.model import User
 from app.modules.auth.security import hash_password
+from app.modules.customers import model as _customer_model  # noqa: F401
 from app.modules.organizations import model as _organization_model  # noqa: F401
 from app.modules.roles import model as _roles_model  # noqa: F401
 from app.modules.roles.model import Role

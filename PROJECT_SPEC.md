@@ -147,6 +147,8 @@ customers 1──N contacts
 customers 1──N follow_ups
 contacts 0..1──N follow_ups
 customers N──N users (customer_collaborators)
+customers 1──N customer_ownership_history
+users 1──N customer_ownership_history (transferred_by)
 users 1──N audit_logs
 users 1──N refresh_tokens
 ```
@@ -163,7 +165,8 @@ users 1──N refresh_tokens
 | `permissions` | `id`, `code` 唯一, `name`, `resource`, `action`, `permission_type`（menu/page/api）；代码由后端常量维护，数据库保存展示信息。 |
 | `user_roles` | `user_id`, `role_id`；联合主键，避免重复分配。 |
 | `role_permissions` | `role_id`, `permission_id`；联合主键。 |
-| `customers` | `id`, `name`, `code` 唯一, `source`, `industry`, `phone`, `email`, `address`, `status`, `owner_id`, `department_id`, `remark`, `deleted_at`；`owner_id` 和 `department_id` 必填。 |
+| `customers` | `id`, `customer_no` 全局唯一, `name`, `source`, `industry`, `level`, `status`, `phone`, `email`, `address`, `description`, `owner_id`, `department_id`, `created_by`, `created_at`, `updated_at`, `deleted_at`；负责人和创建人分开，负责人和部门必填，软删除记录仍占用客户编号。 |
+| `customer_ownership_history` | `id`, `customer_id`, `action`（assigned/transferred）, `previous_owner_id`/`previous_department_id` 可空, `new_owner_id`, `new_department_id`, `transferred_by`, `reason` 可空, `created_at`；只追加，负责人或部门变更与客户操作在同一事务记录。 |
 | `contacts` | `id`, `customer_id`, `name`, `title`, `phone`, `email`, `is_primary`, `remark`, `deleted_at`；同一客户最多一个有效主要联系人。 |
 | `follow_ups` | `id`, `customer_id`, `contact_id` 可空, `user_id`, `followed_at`, `method`, `content`, `result`, `next_follow_up_at` 可空；客户必须存在，联系人必须属于该客户。 |
 | `customer_collaborators` | `customer_id`, `user_id`, `granted_by`, `created_at`；用于在角色数据范围之外显式共享客户，联合主键。 |
@@ -172,7 +175,7 @@ users 1──N refresh_tokens
 
 ### 4.3 索引、完整性和并发
 
-- `users(username)`, `users(email)`, `customers(code)`, `customers(owner_id, status)`, `customers(department_id, status)`, `contacts(customer_id)`, `follow_ups(customer_id, followed_at DESC)`, `audit_logs(resource_type, resource_id, created_at DESC)` 建立索引。
+- `users(username)`, `users(email)`, `customers(customer_no)`, `customers(owner_id, status)`, `customers(department_id, status)`, `customers(name)`, `contacts(customer_id)`, `follow_ups(customer_id, followed_at DESC)`, `customer_ownership_history(customer_id, created_at DESC)`, `audit_logs(resource_type, resource_id, created_at DESC)` 建立索引。
 - 客户名称使用普通索引或前缀查询；首版不承诺模糊搜索的全文检索能力。
 - 外键默认使用 `RESTRICT` 或明确的软删除策略，避免删除父记录导致业务历史丢失。
 - 客户、联系人、跟进记录写入必须在同一事务内完成关联校验；出现并发更新时返回 `409 CONFLICT`。
@@ -260,6 +263,9 @@ PUT              /roles/{role_id}/permissions
 GET              /permissions
 
 GET/POST/PATCH/DELETE /customers
+GET    /customers/name-check
+POST   /customers/{customer_id}/assign
+POST   /customers/{customer_id}/transfer
 GET/POST/PATCH/DELETE /customers/{customer_id}/contacts
 GET/POST/PATCH/DELETE /customers/{customer_id}/follow-ups
 POST                   /customers/{customer_id}/collaborators
@@ -339,9 +345,13 @@ CRM 业务启用后再增加销售角色和客户数据范围策略；菜单权�
 
 交付物：销售角色、客户数据四级范围、统一 scope 查询和 CRM 业务资源授权。验收：列表、详情、更新、删除均无法越权；本人、部门、下属部门和全部范围正确；越权不泄露资源存在性；管理员操作有审计记录。
 
-### Phase 3：客户与联系人
+### Phase 2.1：客户管理
 
-交付物：客户和联系人真实 CRUD、搜索筛选分页、负责人/部门归属、主要联系人约束、客户共享、详情关联展示。验收：唯一约束、软删除、跨客户联系人校验、共享权限和并发冲突可测试；前端表单校验和错误展示完整；核心流程 Playwright 通过。
+交付物：客户模型及软删除、唯一客户编号、客户 CRUD/搜索/筛选/分页、数据范围过滤、负责人分配和带历史记录的负责人转移、同名提醒、客户审计，以及客户列表/详情/新增编辑/分配转移页面。验收：客户编号由数据库唯一约束保证；不同角色不能通过列表、详情 ID、更新、删除或转移越权；删除后列表隐藏且详情不可访问；负责人变更保留历史并与审计同事务；名称重复只提醒且可由有权用户明确继续，不自动合并；关键 API 和前端流程测试通过。Phase 2.1 不包含联系人、跟进、共享、统计或导出。
+
+### Phase 3：联系人与客户共享
+
+交付物：联系人真实 CRUD、主要联系人约束、客户共享和客户详情关联展示。验收：软删除、跨客户联系人校验、共享权限和并发冲突可测试；前端表单校验和错误展示完整；核心流程 Playwright 通过。
 
 ### Phase 4：跟进与基础仪表盘
 

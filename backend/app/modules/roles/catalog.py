@@ -74,6 +74,30 @@ PERMISSION_CATALOG = (
     PermissionDefinition(
         "permissions:read", "查看权限目录", "permissions", "read", "api", "查询权限目录"
     ),
+    PermissionDefinition(
+        "customers:menu", "客户管理菜单", "customers", "menu", "menu", "显示客户管理菜单"
+    ),
+    PermissionDefinition(
+        "customers:page", "客户管理页面", "customers", "page", "page", "访问客户管理页面"
+    ),
+    PermissionDefinition(
+        "customers:read", "查看客户", "customers", "read", "api", "查询客户和同名提醒"
+    ),
+    PermissionDefinition(
+        "customers:create", "创建客户", "customers", "create", "api", "创建客户档案"
+    ),
+    PermissionDefinition(
+        "customers:update", "编辑客户", "customers", "update", "api", "编辑客户档案"
+    ),
+    PermissionDefinition(
+        "customers:delete", "删除客户", "customers", "delete", "api", "软删除客户"
+    ),
+    PermissionDefinition(
+        "customers:assign", "分配客户", "customers", "assign", "api", "分配客户负责人"
+    ),
+    PermissionDefinition(
+        "customers:transfer", "转移客户", "customers", "transfer", "api", "转移客户负责人并记录原因"
+    ),
 )
 
 ROLE_CATALOG = {
@@ -107,5 +131,36 @@ ROLE_CATALOG = {
         "description": "访问工作台，不具备组织和账号管理权限。",
         "data_scope": "self",
         "permission_codes": ("dashboard:menu", "dashboard:page"),
+    },
+    "sales_manager": {
+        "name": "销售主管",
+        "description": "管理本人部门及下属部门范围内的客户和负责人分配。",
+        "data_scope": "subtree",
+        "permission_codes": (
+            "dashboard:menu",
+            "dashboard:page",
+            "customers:menu",
+            "customers:page",
+            "customers:read",
+            "customers:create",
+            "customers:update",
+            "customers:delete",
+            "customers:assign",
+            "customers:transfer",
+        ),
+    },
+    "sales": {
+        "name": "销售",
+        "description": "管理本人负责的客户。",
+        "data_scope": "self",
+        "permission_codes": (
+            "dashboard:menu",
+            "dashboard:page",
+            "customers:menu",
+            "customers:page",
+            "customers:read",
+            "customers:create",
+            "customers:update",
+        ),
     },
 }

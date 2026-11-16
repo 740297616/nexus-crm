@@ -50,8 +50,26 @@ const router = createRouter({
         {
           path: 'customers',
           name: 'customers',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/CustomersView.vue'),
           meta: { title: '客户管理', permission: 'customers:page' },
+        },
+        {
+          path: 'customers/new',
+          name: 'customer-create',
+          component: () => import('@/views/CustomerFormView.vue'),
+          meta: { title: '新建客户', permission: 'customers:page' },
+        },
+        {
+          path: 'customers/:customerId/edit',
+          name: 'customer-edit',
+          component: () => import('@/views/CustomerFormView.vue'),
+          meta: { title: '编辑客户', permission: 'customers:page' },
+        },
+        {
+          path: 'customers/:customerId',
+          name: 'customer-detail',
+          component: () => import('@/views/CustomerDetailView.vue'),
+          meta: { title: '客户详情', permission: 'customers:page' },
         },
         {
           path: 'contacts',
