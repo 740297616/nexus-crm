@@ -18,6 +18,9 @@ PERMISSION_CATALOG = (
     PermissionDefinition(
         "dashboard:page", "工作台页面", "dashboard", "page", "page", "访问工作台页面"
     ),
+    PermissionDefinition(
+        "dashboard:read", "查看工作台统计", "dashboard", "read", "api", "查询工作台统计数据"
+    ),
     PermissionDefinition("users:menu", "用户管理菜单", "users", "menu", "menu", "显示用户管理菜单"),
     PermissionDefinition("users:page", "用户管理页面", "users", "page", "page", "访问用户管理页面"),
     PermissionDefinition("users:read", "查看用户", "users", "read", "api", "查询用户列表和详情"),
@@ -170,6 +173,7 @@ ROLE_CATALOG = {
         "permission_codes": (
             "dashboard:menu",
             "dashboard:page",
+            "dashboard:read",
             "users:menu",
             "users:page",
             "users:read",
@@ -186,7 +190,7 @@ ROLE_CATALOG = {
         "name": "普通员工",
         "description": "访问工作台，不具备组织和账号管理权限。",
         "data_scope": "self",
-        "permission_codes": ("dashboard:menu", "dashboard:page"),
+        "permission_codes": ("dashboard:menu", "dashboard:page", "dashboard:read"),
     },
     "sales_manager": {
         "name": "销售主管",
@@ -195,6 +199,7 @@ ROLE_CATALOG = {
         "permission_codes": (
             "dashboard:menu",
             "dashboard:page",
+            "dashboard:read",
             "customers:menu",
             "customers:page",
             "customers:read",
@@ -237,6 +242,7 @@ ROLE_CATALOG = {
         "permission_codes": (
             "dashboard:menu",
             "dashboard:page",
+            "dashboard:read",
             "customers:menu",
             "customers:page",
             "customers:read",

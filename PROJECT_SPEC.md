@@ -313,7 +313,7 @@ GET    /readyz
 
 ### 6.2 RBAC
 
-权限采用稳定代码，例如 `customers:read`、`customers:create`、`customers:update`、`customers:delete`、`contacts:read`、`contacts:create`、`tags:read`、`tags:bind`、`follow_ups:read`、`follow_ups:create`、`follow_ups:update`、`reminders:read`、`reminders:create`、`reminders:update`、`reminders:complete`、`reminders:cancel`、`user:manage`、`audit_log:read`。角色分配权限，用户分配角色；权限判断集中在依赖和 Service 层。
+权限采用稳定代码，例如 `dashboard:read`、`customers:read`、`customers:create`、`customers:update`、`customers:delete`、`contacts:read`、`contacts:create`、`tags:read`、`tags:bind`、`follow_ups:read`、`follow_ups:create`、`follow_ups:update`、`reminders:read`、`reminders:create`、`reminders:update`、`reminders:complete`、`reminders:cancel`、`user:manage`、`audit_log:read`。角色分配权限，用户分配角色；权限判断集中在依赖和 Service 层。
 
 当前组织与 RBAC 基线角色：
 
@@ -383,13 +383,23 @@ CRM 业务启用后再增加销售角色和客户数据范围策略；菜单权�
 
 交付物：`follow_up_records` 跟进记录、客户跟进时间线、下次跟进提醒、数据库提醒状态、我的待办、到期/逾期查询和前端详情集成。验收：跟进只能关联可见客户及其有效联系人；记录真实操作用户；普通员工不能修改他人记录；跟进不提供物理删除；提醒创建、编辑、完成、取消和到期/逾期查询遵守用户数据范围；关键写入带审计；关联和权限测试通过。
 
-### Phase 4：客户共享与基础仪表盘
+### Phase 4：CRM 工作台与数据统计
 
-交付物：客户显式共享、共享读取范围、客户详情共享管理、基础统计接口和 ECharts 页面。验收：共享只能扩大读取范围，修改/删除仍遵守写权限和 Service 规则；统计结果遵守当前用户数据范围；共享撤销、越权、审计和并发冲突可测试；接口性能达到本规范目标。
+交付物：个人工作台、管理工作台、客户和跟进聚合统计、时间范围筛选、数据权限过滤、无数据状态和 ECharts 响应式图表。统计接口必须使用数据库聚合，不能把未授权数据加载到 Python 后再过滤。验收：个人指标与数据库一致；管理指标按当前数据范围聚合；不同角色的统计结果隔离；趋势范围和 UTC 时间边界正确；接口和前端图表测试通过。
 
-### Phase 5：发布加固
+统计指标定义：
 
-交付物：生产 Compose 配置、Caddy HTTPS 配置说明、备份/恢复演练、迁移回滚策略、权限矩阵文档、监控与日志运行手册、安全检查和发布清单。验收：可从空环境部署并回滚；备份可恢复；关键接口、依赖故障和未授权访问有可观测结果；发布清单逐项通过。
+- `my_customer_total`：当前用户作为负责人且未软删除的客户数。
+- `current_month_new_customers`：当前 UTC 月内新增、当前用户作为负责人的客户数。
+- `current_month_follow_up_count`：当前用户真实创建、关联可见客户且发生在当前 UTC 月内的跟进次数。
+- `today_pending_reminder_count`：当前用户状态为 pending 且提醒时间落在当前 UTC 日的提醒数；其中已逾期提醒仍属于当日待办，并由 `overdue_reminder_count` 单独统计。
+- `overdue_reminder_count`：当前用户状态为 pending 且提醒时间早于当前 UTC 时间的提醒数。
+- `recent_follow_ups`：按跟进时间倒序返回当前用户数据范围内最近 10 条跟进记录。
+- 管理指标（客户总数、部门/负责人数量、来源/等级分布、客户新增趋势、跟进次数趋势）均排除软删除客户，并使用当前用户的有效数据范围；趋势按 UTC 日聚合，默认最近 30 天，最多查询 366 天。
+
+### Phase 5：客户共享与发布加固
+
+交付物：客户显式共享、共享读取范围、生产 Compose 配置、Caddy HTTPS 配置说明、备份/恢复演练、迁移回滚策略、权限矩阵文档、监控与日志运行手册、安全检查和发布清单。验收：共享只能扩大读取范围，修改/删除仍遵守写权限和 Service 规则；可从空环境部署并回滚；备份可恢复；关键接口、依赖故障和未授权访问有可观测结果；发布清单逐项通过。
 
 每个 Phase 结束前必须更新 OpenAPI、迁移说明、测试覆盖和变更记录；未达到验收标准的内容不得标记完成。
 

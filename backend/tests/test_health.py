@@ -19,4 +19,4 @@ def test_api_meta_is_available_under_v1_prefix() -> None:
         response = client.get("/api/v1/meta")
 
     assert response.status_code == 200
-    assert response.json()["data"]["phase"] == "3"
+    assert response.json()["data"]["phase"] == "4"

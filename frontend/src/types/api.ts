@@ -242,3 +242,73 @@ export interface CustomerImportResult {
   errors: CustomerImportIssue[]
   warnings: CustomerImportIssue[]
 }
+
+export interface DashboardRange {
+  start_date: string
+  end_date: string
+}
+
+export interface DashboardTrendPoint {
+  date: string
+  count: number
+}
+
+export interface DashboardDepartmentCount {
+  department_id: string
+  department_name: string
+  count: number
+}
+
+export interface DashboardEmployeeCount {
+  user_id: string
+  user_name: string
+  department_id: string | null
+  count: number
+}
+
+export interface DashboardSourceCount {
+  source: string | null
+  count: number
+}
+
+export interface DashboardLevelCount {
+  level: CustomerLevel
+  count: number
+}
+
+export interface DashboardFollowUp {
+  id: string
+  customer_id: string
+  customer_name: string
+  user_id: string
+  user_name: string
+  method: FollowUpMethod
+  content: string
+  followed_at: string
+  result: string | null
+}
+
+export interface DashboardPersonalStats {
+  my_customer_total: number
+  current_month_new_customers: number
+  current_month_follow_up_count: number
+  today_pending_reminder_count: number
+  overdue_reminder_count: number
+  recent_follow_ups: DashboardFollowUp[]
+}
+
+export interface DashboardManagementStats {
+  customer_total: number
+  department_customer_counts: DashboardDepartmentCount[]
+  employee_customer_counts: DashboardEmployeeCount[]
+  customer_source_distribution: DashboardSourceCount[]
+  customer_level_distribution: DashboardLevelCount[]
+  customer_new_trend: DashboardTrendPoint[]
+  follow_up_trend: DashboardTrendPoint[]
+}
+
+export interface DashboardSummary {
+  personal: DashboardPersonalStats
+  management: DashboardManagementStats
+  range: DashboardRange
+}

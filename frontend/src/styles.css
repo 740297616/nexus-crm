@@ -200,6 +200,144 @@ h1 {
   font-size: 12px;
 }
 
+.dashboard-page {
+  max-width: 1440px;
+}
+
+.dashboard-heading {
+  align-items: center;
+}
+
+.dashboard-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dashboard-section {
+  margin-top: 28px;
+}
+
+.dashboard-stat-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.management-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-stat-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.dashboard-stat-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 112px;
+}
+
+.dashboard-stat-card span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.dashboard-stat-card strong {
+  color: #1f2937;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.dashboard-stat-warning strong {
+  color: #b45309;
+}
+
+.dashboard-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.panel-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-heading strong {
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.panel-heading span {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.dashboard-chart-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.dashboard-chart-wide {
+  grid-column: span 2;
+}
+
+.dashboard-chart {
+  height: 280px;
+  min-width: 0;
+  width: 100%;
+}
+
+.dashboard-trend-chart {
+  height: 300px;
+}
+
+.dashboard-breakdown-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .dashboard-toolbar,
+  .dashboard-toolbar .el-date-editor {
+    width: 100%;
+  }
+
+  .dashboard-stat-grid,
+  .management-stat-grid,
+  .dashboard-chart-grid,
+  .dashboard-breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-chart-wide {
+    grid-column: auto;
+  }
+}
+
 .welcome-card :deep(.el-result) {
   padding: 30px 16px;
 }
