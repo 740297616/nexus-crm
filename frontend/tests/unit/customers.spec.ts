@@ -14,7 +14,10 @@ import {
   checkCustomerName,
   createCustomer,
   deleteCustomer,
+  downloadCustomerImportTemplate,
+  exportCustomers,
   getCustomer,
+  importCustomers,
   listCustomers,
   transferCustomer,
   updateCustomer,
@@ -100,6 +103,27 @@ describe('customer API client', () => {
     expect(http.post).toHaveBeenNthCalledWith(2, '/customers/customer-id/transfer', {
       owner_id: 'user-b',
       reason: 'Territory change',
+    })
+  })
+
+  it('maps Excel template, import, and scoped export endpoints', async () => {
+    const blob = new Blob(['xlsx'])
+    const result = { imported_rows: 1, total_rows: 1 }
+    http.get.mockResolvedValueOnce({ data: blob }).mockResolvedValueOnce({ data: blob })
+    http.post.mockResolvedValue({ data: { success: true, data: result } })
+    const file = new File(['xlsx'], 'customers.xlsx')
+
+    await expect(downloadCustomerImportTemplate()).resolves.toBe(blob)
+    await expect(importCustomers(file)).resolves.toEqual(result)
+    await expect(exportCustomers({ tag_id: 'tag-id', search: 'Acme' })).resolves.toBe(blob)
+
+    expect(http.get).toHaveBeenNthCalledWith(1, '/customers/import/template', {
+      responseType: 'blob',
+    })
+    expect(http.post).toHaveBeenCalledWith('/customers/import', expect.any(FormData))
+    expect(http.get).toHaveBeenNthCalledWith(2, '/customers/export', {
+      params: { tag_id: 'tag-id', search: 'Acme' },
+      responseType: 'blob',
     })
   })
 })

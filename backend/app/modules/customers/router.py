@@ -1,17 +1,22 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.common.schemas import ApiSuccess, PageData
+from app.core.config import get_settings
+from app.core.exceptions import AppException
 from app.core.responses import success_response
 from app.modules.auth.model import User
+from app.modules.customers.excel import EXCEL_MEDIA_TYPE, build_customer_template
 from app.modules.customers.schema import (
     CustomerAssign,
     CustomerAssigneeResponse,
     CustomerCreate,
     CustomerDetailResponse,
+    CustomerImportResult,
     CustomerListFilters,
     CustomerNameCheckResponse,
     CustomerResponse,
@@ -23,7 +28,9 @@ from app.modules.customers.service import (
     check_customer_name,
     create_customer,
     customer_response,
+    export_customers_for_actor,
     get_customer_detail_for_actor,
+    import_customers_from_excel,
     list_assignable_users_for_actor,
     list_customers_for_actor,
     soft_delete_customer,
@@ -141,6 +148,127 @@ def get_customer_assignees(
         for user in users
     ]
     return success_response(items, request.state.request_id)
+
+
+@router.get(
+    "/import/template",
+    summary="Download customer Excel import template",
+    description=(
+        "Permission: customers:import. The template contains only supported customer fields."
+    ),
+)
+def download_customer_import_template(
+    request: Request,
+    actor: User = Depends(require_permission("customers:import")),
+):
+    del actor
+    content = build_customer_template()
+    return StreamingResponse(
+        iter([content]),
+        media_type=EXCEL_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": 'attachment; filename="customer-import-template.xlsx"',
+            "X-Request-ID": request.state.request_id,
+        },
+    )
+
+
+@router.post(
+    "/import",
+    summary="Import customers from Excel",
+    description=(
+        "Permission: customers:import. Valid rows are imported in batches; invalid rows are "
+        "returned in the error report and customer names are warnings only."
+    ),
+    response_model=ApiSuccess[CustomerImportResult],
+)
+async def import_customers(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("customers:import")),
+):
+    settings = get_settings()
+    filename = file.filename or ""
+    if not filename.lower().endswith(".xlsx"):
+        raise AppException("VALIDATION_ERROR", "只支持 .xlsx 格式的 Excel 文件", status_code=400)
+    content = await file.read(settings.customer_import_max_file_size_bytes + 1)
+    if len(content) > settings.customer_import_max_file_size_bytes:
+        raise AppException(
+            "FILE_TOO_LARGE",
+            "文件大小超过上限（最多 "
+            f"{settings.customer_import_max_file_size_bytes // 1024 // 1024} MB）",
+            status_code=413,
+        )
+    if not content.startswith(b"PK"):
+        raise AppException("VALIDATION_ERROR", "文件内容不是有效的 .xlsx 文件", status_code=400)
+    result = import_customers_from_excel(
+        db,
+        actor=actor,
+        filename=filename,
+        content=content,
+        request_id=request.state.request_id,
+    )
+    return success_response(result, request.state.request_id)
+
+
+@router.get(
+    "/export",
+    summary="Export scoped customers to Excel",
+    description=(
+        "Permission: customers:export. Export uses the same filters and data scope as the "
+        "customer list and never accepts a raw owner or permission field."
+    ),
+)
+def export_customers(
+    request: Request,
+    search: str | None = Query(default=None, max_length=200),
+    source: str | None = Query(default=None, max_length=80),
+    industry: str | None = Query(default=None, max_length=100),
+    level: str | None = Query(default=None, pattern="^[ABCD]$"),
+    status: str | None = Query(default=None, pattern="^(active|inactive)$"),
+    owner_id: str | None = None,
+    department_id: str | None = None,
+    tag_id: str | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    sort_by: str = Query(
+        default="created_at",
+        pattern="^(created_at|updated_at|customer_no|name|level|status)$",
+    ),
+    sort_order: str = Query(default="desc", pattern="^(asc|desc)$"),
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("customers:export")),
+):
+    filters = CustomerListFilters(
+        search=search,
+        source=source,
+        industry=industry,
+        level=level,
+        status=status,
+        owner_id=owner_id,
+        department_id=department_id,
+        tag_id=tag_id,
+        created_from=created_from,
+        created_to=created_to,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    content, total = export_customers_for_actor(
+        db,
+        actor=actor,
+        filters=filters,
+        request_id=request.state.request_id,
+    )
+    return StreamingResponse(
+        iter([content]),
+        media_type=EXCEL_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": 'attachment; filename="customers.xlsx"',
+            "X-Request-ID": request.state.request_id,
+            "X-Exported-Rows": str(total),
+        },
+    )
 
 
 @router.post(

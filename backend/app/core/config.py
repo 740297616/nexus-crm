@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     login_max_attempts: int = 5
     login_window_seconds: int = 900
     login_lockout_seconds: int = 900
+    customer_import_max_file_size_bytes: int = 10 * 1024 * 1024
+    customer_import_max_rows: int = 20000
+    customer_import_batch_size: int = 500
+    customer_export_max_rows: int = 50000
 
     model_config = SettingsConfigDict(
         env_file=".env",

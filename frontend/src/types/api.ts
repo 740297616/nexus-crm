@@ -182,3 +182,23 @@ export interface CustomerNameMatch {
   name: string
   owner_name: string
 }
+
+export interface CustomerImportIssue {
+  row: number
+  field: string | null
+  code: string
+  message: string
+  value: string | null
+  severity: 'error' | 'warning'
+}
+
+export interface CustomerImportResult {
+  filename: string
+  total_rows: number
+  imported_rows: number
+  skipped_rows: number
+  error_count: number
+  warning_count: number
+  errors: CustomerImportIssue[]
+  warnings: CustomerImportIssue[]
+}

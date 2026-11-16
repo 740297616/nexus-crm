@@ -172,3 +172,23 @@ class CustomerListFilters(BaseModel):
         "created_at"
     )
     sort_order: Literal["asc", "desc"] = "desc"
+
+
+class CustomerImportIssue(BaseModel):
+    row: int
+    field: str | None = None
+    code: str
+    message: str
+    value: str | None = None
+    severity: Literal["error", "warning"]
+
+
+class CustomerImportResult(BaseModel):
+    filename: str
+    total_rows: int
+    imported_rows: int
+    skipped_rows: int
+    error_count: int
+    warning_count: int
+    errors: list[CustomerImportIssue]
+    warnings: list[CustomerImportIssue]

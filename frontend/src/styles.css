@@ -506,6 +506,35 @@ h1 {
   min-height: 42px;
 }
 
+.customer-page-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.upload-placeholder {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+}
+
+.upload-placeholder span {
+  color: #82918f;
+  font-size: 13px;
+}
+
+.import-result-alert {
+  margin-top: 18px;
+}
+
+.import-issues-table {
+  margin-top: 14px;
+}
+
 .bound-tags {
   align-items: center;
   display: flex;

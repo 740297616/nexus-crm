@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
 import {
   assignCustomer,
   deleteCustomer,
+  downloadCustomerImportTemplate,
+  exportCustomers,
   getCustomer,
+  importCustomers,
   listCustomerAssignees,
   listCustomers,
   transferCustomer,
@@ -14,7 +17,7 @@ import {
 } from '@/api/customers'
 import { listTags } from '@/api/tags'
 import { useAuthStore } from '@/stores/auth'
-import type { CustomerAssignee, CustomerRecord, TagRecord } from '@/types/api'
+import type { CustomerAssignee, CustomerImportResult, CustomerRecord, TagRecord } from '@/types/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -36,6 +39,12 @@ const assignees = ref<CustomerAssignee[]>([])
 const ownerForm = reactive({ owner_id: '', reason: '' })
 const tags = ref<TagRecord[]>([])
 const canTagRead = authStore.hasPermission('tags:read')
+const canImport = authStore.hasPermission('customers:import')
+const canExport = authStore.hasPermission('customers:export')
+const importDialogVisible = ref(false)
+const importFile = ref<File | null>(null)
+const importSaving = ref(false)
+const importResult = ref<CustomerImportResult | null>(null)
 
 const canCreate = authStore.hasPermission('customers:create')
 const canUpdate = authStore.hasPermission('customers:update')
@@ -83,6 +92,77 @@ async function loadTags() {
     tags.value = await listTags()
   } catch {
     tags.value = []
+  }
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+async function downloadTemplate() {
+  try {
+    saveBlob(await downloadCustomerImportTemplate(), 'customer-import-template.xlsx')
+  } catch {
+    ElMessage.error('导入模板下载失败')
+  }
+}
+
+async function exportFilteredCustomers() {
+  try {
+    saveBlob(
+      await exportCustomers({
+        ...filters,
+        search: searchInput.value.trim() || undefined,
+      }),
+      'customers.xlsx',
+    )
+    ElMessage.success('客户数据导出已开始')
+  } catch {
+    ElMessage.error('客户数据导出失败，请检查权限或筛选范围')
+  }
+}
+
+function openImportDialog() {
+  importFile.value = null
+  importResult.value = null
+  importDialogVisible.value = true
+}
+
+function handleImportFile(file: UploadFile) {
+  const rawFile = file.raw
+  if (!rawFile) return
+  if (!rawFile.name.toLowerCase().endsWith('.xlsx')) {
+    ElMessage.error('只支持 .xlsx 格式的 Excel 文件')
+    importFile.value = null
+    return
+  }
+  importFile.value = rawFile
+  importResult.value = null
+}
+
+function clearImportFile() {
+  importFile.value = null
+}
+
+async function submitImport() {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择 Excel 文件')
+    return
+  }
+  importSaving.value = true
+  try {
+    importResult.value = await importCustomers(importFile.value)
+    if (importResult.value.imported_rows > 0) await loadCustomers()
+    ElMessage.success(`导入完成：成功 ${importResult.value.imported_rows} 条`)
+  } catch {
+    ElMessage.error('Excel 导入失败，请检查文件格式和权限')
+  } finally {
+    importSaving.value = false
   }
 }
 
@@ -203,9 +283,18 @@ onMounted(async () => {
         <p class="eyebrow">CRM / ACCOUNTS</p>
         <h1>客户管理</h1>
       </div>
-      <el-button v-if="canCreate" type="primary" @click="router.push({ name: 'customer-create' })">
-        新建客户
-      </el-button>
+      <div class="customer-page-actions">
+        <el-button v-if="canImport" @click="downloadTemplate">下载导入模板</el-button>
+        <el-button v-if="canImport" @click="openImportDialog">导入 Excel</el-button>
+        <el-button v-if="canExport" @click="exportFilteredCustomers">导出 Excel</el-button>
+        <el-button
+          v-if="canCreate"
+          type="primary"
+          @click="router.push({ name: 'customer-create' })"
+        >
+          新建客户
+        </el-button>
+      </div>
     </div>
 
     <div class="customer-filters">
@@ -384,6 +473,68 @@ onMounted(async () => {
           @click="submitOwnerChange"
         >
           保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="importDialogVisible" title="导入客户 Excel" width="760px">
+      <el-upload
+        drag
+        :auto-upload="false"
+        :limit="1"
+        accept=".xlsx"
+        :on-change="handleImportFile"
+        :on-remove="clearImportFile"
+      >
+        <div class="upload-placeholder">
+          <strong>拖拽 .xlsx 文件到此处，或点击选择文件</strong>
+          <span>服务端会校验字段、重复编号、负责人范围和公式内容</span>
+        </div>
+      </el-upload>
+      <el-alert
+        v-if="importResult"
+        class="import-result-alert"
+        :title="`共 ${importResult.total_rows} 行，成功 ${importResult.imported_rows} 行，跳过 ${importResult.skipped_rows} 行`"
+        :type="importResult.error_count ? 'warning' : 'success'"
+        :closable="false"
+      >
+        <template #default>
+          <span
+            >错误 {{ importResult.error_count }} 条，提醒
+            {{ importResult.warning_count }} 条。</span
+          >
+        </template>
+      </el-alert>
+      <el-table
+        v-if="importResult && importResult.errors.length"
+        :data="importResult.errors"
+        max-height="260"
+        class="data-table import-issues-table"
+      >
+        <el-table-column label="行" width="70" prop="row" />
+        <el-table-column label="字段" width="150" prop="field" />
+        <el-table-column label="错误" min-width="260" prop="message" />
+        <el-table-column label="值" min-width="160" prop="value" />
+      </el-table>
+      <el-table
+        v-if="importResult && importResult.warnings.length"
+        :data="importResult.warnings"
+        max-height="200"
+        class="data-table import-issues-table"
+      >
+        <el-table-column label="行" width="70" prop="row" />
+        <el-table-column label="字段" width="150" prop="field" />
+        <el-table-column label="提醒" min-width="260" prop="message" />
+      </el-table>
+      <template #footer>
+        <el-button @click="importDialogVisible = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="importSaving"
+          :disabled="!importFile"
+          @click="submitImport"
+        >
+          开始导入
         </el-button>
       </template>
     </el-dialog>

@@ -3,6 +3,7 @@ import type {
   ApiSuccess,
   CustomerAssignee,
   CustomerDetail,
+  CustomerImportResult,
   CustomerLevel,
   CustomerNameMatch,
   CustomerRecord,
@@ -41,6 +42,28 @@ export type CustomerUpdatePayload = Partial<Omit<CustomerPayload, 'customer_no' 
 
 export async function listCustomers(params: CustomerFilters) {
   const response = await http.get<ApiSuccess<PageData<CustomerRecord>>>('/customers', { params })
+  return response.data
+}
+
+export async function downloadCustomerImportTemplate() {
+  const response = await http.get<Blob>('/customers/import/template', {
+    responseType: 'blob',
+  })
+  return response.data
+}
+
+export async function importCustomers(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await http.post<ApiSuccess<CustomerImportResult>>('/customers/import', formData)
+  return response.data.data
+}
+
+export async function exportCustomers(params: Omit<CustomerFilters, 'page' | 'page_size'>) {
+  const response = await http.get<Blob>('/customers/export', {
+    params,
+    responseType: 'blob',
+  })
   return response.data
 }
 

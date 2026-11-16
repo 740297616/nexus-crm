@@ -63,6 +63,28 @@ def customer_no_exists(db: Session, customer_no: str) -> bool:
     )
 
 
+def existing_customer_nos(db: Session, customer_nos: set[str]) -> set[str]:
+    if not customer_nos:
+        return set()
+    return set(
+        db.scalars(select(Customer.customer_no).where(Customer.customer_no.in_(customer_nos))).all()
+    )
+
+
+def existing_customer_name_keys(
+    db: Session,
+    *,
+    name_keys: set[str],
+    scope: DataScopeContext,
+) -> set[str]:
+    if not name_keys:
+        return set()
+    normalized_name = func.lower(func.trim(Customer.name))
+    statement = select(normalized_name).where(normalized_name.in_(name_keys))
+    statement = _apply_customer_scope(statement, scope)
+    return set(db.scalars(statement).all())
+
+
 def find_name_duplicates(
     db: Session,
     *,
@@ -106,6 +128,19 @@ def get_active_owner(db: Session, owner_id: str) -> User | None:
         select(User)
         .options(joinedload(User.department))
         .where(User.id == owner_id, User.status == "active")
+    )
+    return db.scalar(statement)
+
+
+def get_active_owner_by_identifier(db: Session, identifier: str) -> User | None:
+    normalized = identifier.strip().casefold()
+    statement = (
+        select(User)
+        .options(joinedload(User.department))
+        .where(
+            User.status == "active",
+            or_(func.lower(User.username) == normalized, func.lower(User.email) == normalized),
+        )
     )
     return db.scalar(statement)
 

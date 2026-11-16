@@ -1,3 +1,4 @@
+from io import BytesIO
 from uuid import uuid4
 
 import pytest
@@ -7,6 +8,7 @@ from app.modules.customers.model import Customer, CustomerOwnershipHistory
 from app.modules.organizations.model import Department
 from app.modules.roles.model import Role
 from fastapi.testclient import TestClient
+from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -82,6 +84,17 @@ def _login(client: TestClient, username: str, password: str) -> str:
 
 def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _customer_workbook(headers: list[str], rows: list[list[object]]) -> bytes:
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.append(headers)
+    for row in rows:
+        worksheet.append(row)
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
 
 
 def _create_customer(
@@ -453,3 +466,130 @@ def test_customer_permissions_and_assignee_list_are_scope_limited(
         customer_identities["alice"].id,
         customer_identities["bob"].id,
     }
+
+
+def test_customer_excel_template_import_validation_and_result_report(
+    client: TestClient,
+    db_session: Session,
+    customer_identities: dict[str, User | Department],
+) -> None:
+    alice_token = _login(client, "customer-alice", "CustomerAlice123!")
+    existing = _create_customer(client, alice_token, "EXCEL-EXISTING", "Existing Import Name")
+
+    template = client.get("/api/v1/customers/import/template", headers=_headers(alice_token))
+    assert template.status_code == 200
+    assert template.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    template_workbook = load_workbook(BytesIO(template.content), read_only=True)
+    assert list(template_workbook.active.values)[0][:2] == ("客户编号", "客户名称")
+    template_workbook.close()
+
+    content = _customer_workbook(
+        ["客户编号", "客户名称", "负责人账号", "等级", "状态", "联系电话"],
+        [
+            ["EXCEL-100", "Imported Customer", "", "A", "active", "13800000001"],
+            ["EXCEL-101", "Existing Import Name", "", "C", "active", ""],
+            ["EXCEL-100", "Duplicate Number", "", "C", "active", ""],
+            ["EXCEL-102", "", "", "C", "active", ""],
+        ],
+    )
+    imported = client.post(
+        "/api/v1/customers/import",
+        headers=_headers(alice_token),
+        files={
+            "file": (
+                "customers.xlsx",
+                content,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert imported.status_code == 200, imported.text
+    result = imported.json()["data"]
+    assert result["total_rows"] == 4
+    assert result["imported_rows"] == 2
+    assert result["error_count"] == 2
+    assert result["warning_count"] == 1
+    assert any(issue["code"] == "DUPLICATE_CUSTOMER_NO" for issue in result["errors"])
+    assert any(issue["code"] == "DUPLICATE_CUSTOMER_NAME" for issue in result["warnings"])
+    assert any(
+        item["customer_no"] == "EXCEL-100"
+        for item in client.get("/api/v1/customers", headers=_headers(alice_token)).json()["data"][
+            "items"
+        ]
+    )
+    assert existing["id"]
+
+    formula = _customer_workbook(
+        ["客户编号", "客户名称"], [["EXCEL-103", '=HYPERLINK("https://example.com")']]
+    )
+    xlsx_media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    formula_result = client.post(
+        "/api/v1/customers/import",
+        headers=_headers(alice_token),
+        files={
+            "file": (
+                "formula.xlsx",
+                formula,
+                xlsx_media_type,
+            )
+        },
+    )
+    assert formula_result.status_code == 200
+    assert formula_result.json()["data"]["imported_rows"] == 0
+    assert formula_result.json()["data"]["errors"][0]["code"] == "FORMULA_NOT_ALLOWED"
+
+    forbidden_column = _customer_workbook(
+        ["客户编号", "客户名称", "owner_id"], [["EXCEL-104", "Sensitive Owner", "not-trusted"]]
+    )
+    forbidden_result = client.post(
+        "/api/v1/customers/import",
+        headers=_headers(alice_token),
+        files={
+            "file": (
+                "forbidden.xlsx",
+                forbidden_column,
+                xlsx_media_type,
+            )
+        },
+    )
+    assert forbidden_result.status_code == 400
+    assert forbidden_result.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_customer_excel_export_obeys_scope_and_filters(
+    client: TestClient,
+    customer_identities: dict[str, User | Department],
+    user: User,
+) -> None:
+    alice_token = _login(client, "customer-alice", "CustomerAlice123!")
+    bob_token = _login(client, "customer-bob", "CustomerBob123!")
+    manager_token = _login(client, "customer-manager", "CustomerManager123!")
+    employee_token = _login(client, "alice", "CorrectPassword123!")
+    _create_customer(client, alice_token, "EXPORT-ALICE", "Export Alice")
+    _create_customer(client, bob_token, "EXPORT-BOB", "Export Bob")
+    eve_token = _login(client, "customer-eve", "CustomerEve123!")
+    _create_customer(client, eve_token, "EXPORT-EVE", "Export Eve")
+
+    alice_export = client.get(
+        "/api/v1/customers/export?search=Export", headers=_headers(alice_token)
+    )
+    assert alice_export.status_code == 200, alice_export.text
+    alice_workbook = load_workbook(BytesIO(alice_export.content), read_only=True)
+    alice_rows = list(alice_workbook.active.values)
+    alice_workbook.close()
+    assert len(alice_rows) == 2
+    assert alice_rows[1][0] == "EXPORT-ALICE"
+    assert alice_export.headers["x-exported-rows"] == "1"
+
+    manager_export = client.get("/api/v1/customers/export", headers=_headers(manager_token))
+    assert manager_export.status_code == 200
+    manager_workbook = load_workbook(BytesIO(manager_export.content), read_only=True)
+    manager_rows = list(manager_workbook.active.values)
+    manager_workbook.close()
+    assert {row[0] for row in manager_rows[1:]} == {"EXPORT-ALICE", "EXPORT-BOB"}
+
+    denied = client.get("/api/v1/customers/export", headers=_headers(employee_token))
+    assert denied.status_code == 403
+    assert user.id != customer_identities["alice"].id

@@ -37,7 +37,7 @@
 
 ### 2.1 技术栈
 
-前端固定使用 Vue 3、TypeScript strict、Vite、Element Plus、Pinia、Vue Router、Axios、ECharts、pnpm。后端固定使用 Python 3.12+、FastAPI、SQLAlchemy 2.0 同步模式、Pydantic 2、Alembic、PostgreSQL、PyJWT、Argon2id、uv。工程化固定使用 Docker、Docker Compose、Caddy、Pytest、Vitest、Playwright、Ruff、ESLint、Prettier。
+前端固定使用 Vue 3、TypeScript strict、Vite、Element Plus、Pinia、Vue Router、Axios、ECharts、pnpm。后端固定使用 Python 3.12+、FastAPI、SQLAlchemy 2.0 同步模式、Pydantic 2、Alembic、PostgreSQL、PyJWT、Argon2id、uv；Excel `.xlsx` 文件处理使用 `openpyxl`。工程化固定使用 Docker、Docker Compose、Caddy、Pytest、Vitest、Playwright、Ruff、ESLint、Prettier。
 
 ### 2.2 总体架构
 
@@ -245,6 +245,7 @@ users 1──N refresh_tokens
 | 409 | `DUPLICATE_RESOURCE` / `CONFLICT` | 唯一键冲突或并发版本冲突 |
 | 422 | `BUSINESS_RULE_VIOLATION` | 请求格式正确但违反业务规则 |
 | 429 | `RATE_LIMITED` | 登录等敏感接口触发限流（由网关/应用实现） |
+| 413 | `FILE_TOO_LARGE` | 上传文件或导出结果超过配置上限 |
 | 500 | `INTERNAL_ERROR` | 未预期错误；必须记录 request_id |
 | 503 | `SERVICE_UNAVAILABLE` | 数据库或依赖不可用 |
 
@@ -278,6 +279,9 @@ DELETE /customers/{customer_id}/tags/{tag_id}
 GET/POST/PATCH/DELETE /customers/{customer_id}/follow-ups
 POST                   /customers/{customer_id}/collaborators
 DELETE                 /customers/{customer_id}/collaborators/{user_id}
+GET    /customers/import/template
+POST   /customers/import
+GET    /customers/export
 
 GET    /dashboard/summary
 GET    /audit-logs
@@ -360,6 +364,10 @@ CRM 业务启用后再增加销售角色和客户数据范围策略；菜单权�
 ### Phase 2.2：联系人与客户标签
 
 交付物：联系人真实 CRUD、主要联系人约束、客户详情关联展示、标签词典、客户标签绑定/解绑和按标签筛选。验收：联系人只能关联可见且有效客户；同一客户最多一个有效主要联系人，设置新主要联系人自动取消旧标记；联系人软删除、标签关系唯一性、客户软删除后的关联隐藏、数据范围和审计测试通过；前端客户详情核心流程通过。
+
+### Phase 2.3：客户 Excel 导入导出
+
+交付物：受权限保护的 `.xlsx` 导入模板下载、字段白名单和映射、后端字段校验、客户编号重复检查、客户名称重复提醒、公式注入防护、逐行错误报告、分批导入、按当前筛选和数据范围导出。验收：文件大小和格式限制有效；负责人只能通过用户名或邮箱解析且必须经过服务端数据范围校验；导入错误不会写入无效客户；重复编号、空必填字段和公式数据可定位到行；名称重复只产生提醒；导出不能读取或输出范围外客户；导入和导出审计事件、模板和 API 契约测试通过。
 
 ### Phase 3：客户共享
 

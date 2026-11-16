@@ -99,6 +99,12 @@ PERMISSION_CATALOG = (
         "customers:transfer", "转移客户", "customers", "transfer", "api", "转移客户负责人并记录原因"
     ),
     PermissionDefinition(
+        "customers:import", "导入客户", "customers", "import", "api", "从 Excel 批量导入客户"
+    ),
+    PermissionDefinition(
+        "customers:export", "导出客户", "customers", "export", "api", "按数据权限导出客户"
+    ),
+    PermissionDefinition(
         "contacts:read", "查看联系人", "contacts", "read", "api", "查询客户联系人"
     ),
     PermissionDefinition(
@@ -173,6 +179,8 @@ ROLE_CATALOG = {
             "customers:delete",
             "customers:assign",
             "customers:transfer",
+            "customers:import",
+            "customers:export",
             "contacts:read",
             "contacts:create",
             "contacts:update",
@@ -198,6 +206,8 @@ ROLE_CATALOG = {
             "customers:read",
             "customers:create",
             "customers:update",
+            "customers:import",
+            "customers:export",
             "contacts:read",
             "contacts:create",
             "contacts:update",
