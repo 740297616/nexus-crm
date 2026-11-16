@@ -16,6 +16,7 @@ export interface CustomerFilters {
   industry?: string
   level?: CustomerLevel
   status?: CustomerStatus
+  tag_id?: string
   page?: number
   page_size?: number
   sort_by?: 'created_at' | 'updated_at' | 'customer_no' | 'name' | 'level' | 'status'

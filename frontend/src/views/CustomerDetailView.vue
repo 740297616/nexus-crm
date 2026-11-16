@@ -1,11 +1,44 @@
 <script setup lang="ts">
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import {
+  createContact,
+  deleteContact,
+  listContacts,
+  setPrimaryContact,
+  updateContact,
+  type ContactPayload,
+} from '@/api/contacts'
 import { deleteCustomer, getCustomer } from '@/api/customers'
+import {
+  bindCustomerTag,
+  createTag,
+  deleteTag,
+  listCustomerTags,
+  listTags,
+  unbindCustomerTag,
+  updateTag,
+  type TagPayload,
+} from '@/api/tags'
 import { useAuthStore } from '@/stores/auth'
-import type { CustomerDetail } from '@/types/api'
+import type { ContactRecord, CustomerDetail, CustomerTagRecord, TagRecord } from '@/types/api'
+
+interface ContactForm {
+  name: string
+  title: string
+  phone: string
+  email: string
+  contact_method: string
+  is_primary: boolean
+  remark: string
+}
+
+interface TagForm {
+  name: string
+  description: string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -15,22 +48,94 @@ const loading = ref(false)
 const deleting = ref(false)
 const loadError = ref('')
 const customerId = computed(() => String(route.params.customerId ?? ''))
+
 const canUpdate = computed(() => authStore.hasPermission('customers:update'))
 const canDelete = computed(() => authStore.hasPermission('customers:delete'))
 const canAssign = computed(() => authStore.hasPermission('customers:assign'))
 const canTransfer = computed(() => authStore.hasPermission('customers:transfer'))
+const canContactRead = computed(() => authStore.hasPermission('contacts:read'))
+const canContactCreate = computed(() => authStore.hasPermission('contacts:create'))
+const canContactUpdate = computed(() => authStore.hasPermission('contacts:update'))
+const canContactDelete = computed(() => authStore.hasPermission('contacts:delete'))
+const canContactPrimary = computed(() => authStore.hasPermission('contacts:set_primary'))
+const canTagRead = computed(() => authStore.hasPermission('tags:read'))
+const canTagBind = computed(() => authStore.hasPermission('tags:bind'))
+const canTagUnbind = computed(() => authStore.hasPermission('tags:unbind'))
+const canTagManage = computed(
+  () =>
+    authStore.hasPermission('tags:create') ||
+    authStore.hasPermission('tags:update') ||
+    authStore.hasPermission('tags:delete'),
+)
 
-async function loadCustomer() {
-  loading.value = true
-  loadError.value = ''
-  try {
-    customer.value = await getCustomer(customerId.value)
-  } catch {
-    customer.value = null
-    loadError.value = '客户不存在、已删除或当前账号无权查看。'
-  } finally {
-    loading.value = false
+const contacts = ref<ContactRecord[]>([])
+const contactsTotal = ref(0)
+const contactsPage = ref(1)
+const contactsPageSize = ref(10)
+const contactsSearch = ref('')
+const contactsLoading = ref(false)
+const contactsError = ref('')
+const contactDialogVisible = ref(false)
+const contactSaving = ref(false)
+const contactFormRef = ref<FormInstance>()
+const editingContactId = ref<string | null>(null)
+const contactForm = reactive<ContactForm>(emptyContactForm())
+
+const contactRules: FormRules<ContactForm> = {
+  name: [
+    { required: true, message: '请输入联系人姓名', trigger: 'blur' },
+    { max: 100, message: '姓名不能超过 100 个字符', trigger: 'blur' },
+  ],
+  title: [{ max: 100, message: '职务不能超过 100 个字符', trigger: 'blur' }],
+  phone: [{ max: 40, message: '手机号不能超过 40 个字符', trigger: 'blur' }],
+  email: [
+    {
+      validator: (_rule, value: string, callback) => {
+        if (!value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) callback()
+        else callback(new Error('请输入有效的邮箱地址'))
+      },
+      trigger: 'blur',
+    },
+  ],
+  contact_method: [{ max: 50, message: '联系方式不能超过 50 个字符', trigger: 'blur' }],
+  remark: [{ max: 4000, message: '备注不能超过 4000 个字符', trigger: 'blur' }],
+}
+
+const tags = ref<TagRecord[]>([])
+const customerTags = ref<CustomerTagRecord[]>([])
+const selectedTagId = ref('')
+const tagsLoading = ref(false)
+const tagsError = ref('')
+const tagDialogVisible = ref(false)
+const tagFormVisible = ref(false)
+const tagSaving = ref(false)
+const editingTagId = ref<string | null>(null)
+const tagForm = reactive<TagForm>(emptyTagForm())
+const availableTags = computed(() => {
+  const boundIds = new Set(customerTags.value.map((item) => item.tag_id))
+  return tags.value.filter((tag) => !boundIds.has(tag.id))
+})
+const canEditTag = computed(() => authStore.hasPermission('tags:update'))
+const canDeleteTag = computed(() => authStore.hasPermission('tags:delete'))
+
+function emptyContactForm(): ContactForm {
+  return {
+    name: '',
+    title: '',
+    phone: '',
+    email: '',
+    contact_method: '',
+    is_primary: false,
+    remark: '',
   }
+}
+
+function emptyTagForm(): TagForm {
+  return { name: '', description: '' }
+}
+
+function nullable(value: string) {
+  return value.trim() || null
 }
 
 function formatDate(value: string) {
@@ -39,6 +144,239 @@ function formatDate(value: string) {
 
 function levelLabel(level: CustomerDetail['level']) {
   return { A: 'A 重点', B: 'B 优先', C: 'C 常规', D: 'D 观察' }[level]
+}
+
+async function loadContacts() {
+  if (!customer.value || !canContactRead.value) return
+  contactsLoading.value = true
+  contactsError.value = ''
+  try {
+    const response = await listContacts(customerId.value, {
+      search: contactsSearch.value.trim() || undefined,
+      page: contactsPage.value,
+      page_size: contactsPageSize.value,
+    })
+    contacts.value = response.data.items
+    contactsTotal.value = response.data.total
+  } catch {
+    contactsError.value = '联系人加载失败，请重试。'
+  } finally {
+    contactsLoading.value = false
+  }
+}
+
+function searchContacts() {
+  contactsPage.value = 1
+  void loadContacts()
+}
+
+async function loadTags() {
+  if (!customer.value || !canTagRead.value) return
+  tagsLoading.value = true
+  tagsError.value = ''
+  try {
+    const [tagItems, boundItems] = await Promise.all([
+      listTags(),
+      listCustomerTags(customerId.value),
+    ])
+    tags.value = tagItems
+    customerTags.value = boundItems
+  } catch {
+    tagsError.value = '客户标签加载失败，请重试。'
+  } finally {
+    tagsLoading.value = false
+  }
+}
+
+async function loadCustomer() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    customer.value = await getCustomer(customerId.value)
+    await Promise.all([loadContacts(), loadTags()])
+  } catch {
+    customer.value = null
+    loadError.value = '客户不存在、已删除或当前账号无权查看。'
+  } finally {
+    loading.value = false
+  }
+}
+
+function openContactCreate() {
+  editingContactId.value = null
+  Object.assign(contactForm, emptyContactForm())
+  contactDialogVisible.value = true
+}
+
+function openContactEdit(contact: ContactRecord) {
+  editingContactId.value = contact.id
+  Object.assign(contactForm, {
+    name: contact.name,
+    title: contact.title ?? '',
+    phone: contact.phone ?? '',
+    email: contact.email ?? '',
+    contact_method: contact.contact_method ?? '',
+    is_primary: contact.is_primary,
+    remark: contact.remark ?? '',
+  })
+  contactDialogVisible.value = true
+}
+
+async function saveContact() {
+  if (!contactFormRef.value) return
+  try {
+    await contactFormRef.value.validate()
+  } catch {
+    return
+  }
+  const payload: ContactPayload = {
+    name: contactForm.name.trim(),
+    title: nullable(contactForm.title),
+    phone: nullable(contactForm.phone),
+    email: nullable(contactForm.email),
+    contact_method: nullable(contactForm.contact_method),
+    is_primary: contactForm.is_primary,
+    remark: nullable(contactForm.remark),
+  }
+  contactSaving.value = true
+  try {
+    if (editingContactId.value) {
+      const updatePayload: Partial<Omit<ContactPayload, 'is_primary'>> = {
+        name: payload.name,
+        title: payload.title,
+        phone: payload.phone,
+        email: payload.email,
+        contact_method: payload.contact_method,
+        remark: payload.remark,
+      }
+      await updateContact(customerId.value, editingContactId.value, updatePayload)
+      ElMessage.success('联系人已更新')
+    } else {
+      await createContact(customerId.value, payload)
+      ElMessage.success('联系人已创建')
+    }
+    contactDialogVisible.value = false
+    await loadContacts()
+  } catch {
+    ElMessage.error('联系人保存失败，请检查权限和字段内容。')
+  } finally {
+    contactSaving.value = false
+  }
+}
+
+async function removeContact(contact: ContactRecord) {
+  try {
+    await ElMessageBox.confirm(`软删除联系人“${contact.name}”？`, '确认删除', { type: 'warning' })
+    await deleteContact(customerId.value, contact.id)
+    ElMessage.success('联系人已删除')
+    if (contacts.value.length === 1 && contactsPage.value > 1) contactsPage.value -= 1
+    await loadContacts()
+  } catch (error: unknown) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('联系人删除失败')
+  }
+}
+
+async function makePrimary(contact: ContactRecord) {
+  try {
+    await setPrimaryContact(customerId.value, contact.id)
+    ElMessage.success('主要联系人已更新')
+    await loadContacts()
+  } catch {
+    ElMessage.error('主要联系人更新失败，请重试。')
+  }
+}
+
+function changeContactPage(page: number) {
+  contactsPage.value = page
+  void loadContacts()
+}
+
+function changeContactPageSize(pageSize: number) {
+  contactsPageSize.value = pageSize
+  contactsPage.value = 1
+  void loadContacts()
+}
+
+async function bindSelectedTag() {
+  if (!selectedTagId.value) return
+  try {
+    await bindCustomerTag(customerId.value, selectedTagId.value)
+    selectedTagId.value = ''
+    ElMessage.success('标签已绑定')
+    await loadTags()
+  } catch {
+    ElMessage.error('标签绑定失败，可能已绑定或已超出权限范围。')
+  }
+}
+
+async function unbindTag(tag: CustomerTagRecord) {
+  try {
+    await ElMessageBox.confirm(`移除标签“${tag.tag_name}”？`, '确认解绑', { type: 'warning' })
+    await unbindCustomerTag(customerId.value, tag.tag_id)
+    ElMessage.success('标签已解绑')
+    await loadTags()
+  } catch (error: unknown) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('标签解绑失败')
+  }
+}
+
+function openTagManagement() {
+  tagDialogVisible.value = true
+  tagFormVisible.value = false
+}
+
+function openTagCreate() {
+  editingTagId.value = null
+  Object.assign(tagForm, emptyTagForm())
+  tagFormVisible.value = true
+}
+
+function openTagEdit(tag: TagRecord) {
+  editingTagId.value = tag.id
+  Object.assign(tagForm, { name: tag.name, description: tag.description ?? '' })
+  tagFormVisible.value = true
+}
+
+async function saveTag() {
+  const payload: TagPayload = {
+    name: tagForm.name.trim(),
+    description: nullable(tagForm.description),
+  }
+  if (!payload.name) {
+    ElMessage.warning('请输入标签名称')
+    return
+  }
+  tagSaving.value = true
+  try {
+    if (editingTagId.value) {
+      await updateTag(editingTagId.value, payload)
+      ElMessage.success('标签已更新')
+    } else {
+      await createTag(payload)
+      ElMessage.success('标签已创建')
+    }
+    tagFormVisible.value = false
+    await loadTags()
+  } catch {
+    ElMessage.error('标签保存失败，标签名称可能已存在。')
+  } finally {
+    tagSaving.value = false
+  }
+}
+
+async function removeTag(tag: TagRecord) {
+  try {
+    await ElMessageBox.confirm(
+      `删除标签“${tag.name}”？已存在的客户关系会保留，但不再显示该标签。`,
+      '确认删除',
+      { type: 'warning' },
+    )
+    await deleteTag(tag.id)
+    ElMessage.success('标签已删除')
+    await loadTags()
+  } catch (error: unknown) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('标签删除失败')
+  }
 }
 
 async function removeCustomer() {
@@ -160,6 +498,140 @@ onMounted(loadCustomer)
         </el-descriptions>
       </section>
 
+      <section v-if="canContactRead" class="customer-detail-section">
+        <div class="section-heading-row">
+          <div>
+            <h2>联系人</h2>
+            <p>联系人属于当前客户，权限和数据范围随客户生效</p>
+          </div>
+          <el-button v-if="canContactCreate" type="primary" @click="openContactCreate"
+            >新增联系人</el-button
+          >
+        </div>
+        <div class="related-toolbar">
+          <el-input
+            v-model="contactsSearch"
+            clearable
+            placeholder="搜索姓名、职务、手机号或邮箱"
+            class="related-search"
+            @keyup.enter="searchContacts"
+            @clear="searchContacts"
+          />
+          <el-button @click="searchContacts">查询</el-button>
+        </div>
+        <el-alert
+          v-if="contactsError"
+          :title="contactsError"
+          type="error"
+          show-icon
+          :closable="false"
+        >
+          <template #default
+            ><el-button link type="primary" @click="loadContacts">重试</el-button></template
+          >
+        </el-alert>
+        <el-table v-loading="contactsLoading" :data="contacts" row-key="id" class="data-table">
+          <el-table-column label="联系人" min-width="160">
+            <template #default="scope">
+              <button class="related-name-button" type="button" @click="openContactEdit(scope.row)">
+                <strong>{{ scope.row.name }}</strong>
+                <el-tag v-if="scope.row.is_primary" type="success" size="small">主要</el-tag>
+              </button>
+            </template>
+          </el-table-column>
+          <el-table-column label="职务" min-width="120" prop="title" />
+          <el-table-column label="手机号" min-width="140" prop="phone" />
+          <el-table-column label="邮箱" min-width="200" prop="email" />
+          <el-table-column label="联系方式" min-width="120" prop="contact_method" />
+          <el-table-column label="更新时间" min-width="170">
+            <template #default="scope">{{ formatDate(scope.row.updated_at) }}</template>
+          </el-table-column>
+          <el-table-column
+            v-if="canContactUpdate || canContactDelete || canContactPrimary"
+            label="操作"
+            width="240"
+            fixed="right"
+          >
+            <template #default="scope">
+              <el-button
+                v-if="canContactPrimary && !scope.row.is_primary"
+                link
+                type="success"
+                @click="makePrimary(scope.row)"
+                >设为主要</el-button
+              >
+              <el-button
+                v-if="canContactUpdate"
+                link
+                type="primary"
+                @click="openContactEdit(scope.row)"
+                >编辑</el-button
+              >
+              <el-button
+                v-if="canContactDelete"
+                link
+                type="danger"
+                @click="removeContact(scope.row)"
+                >删除</el-button
+              >
+            </template>
+          </el-table-column>
+          <template #empty><el-empty description="暂无联系人" /></template>
+        </el-table>
+        <div class="pagination-row">
+          <span>共 {{ contactsTotal }} 位联系人</span>
+          <el-pagination
+            :current-page="contactsPage"
+            :page-size="contactsPageSize"
+            :page-sizes="[10, 20, 50]"
+            :total="contactsTotal"
+            layout="sizes, prev, pager, next"
+            @current-change="changeContactPage"
+            @size-change="changeContactPageSize"
+          />
+        </div>
+      </section>
+
+      <section v-if="canTagRead" class="customer-detail-section">
+        <div class="section-heading-row">
+          <div>
+            <h2>客户标签</h2>
+            <p>标签用于筛选和归类客户，删除标签不会破坏历史关联</p>
+          </div>
+          <el-button v-if="canTagManage" @click="openTagManagement">管理标签</el-button>
+        </div>
+        <el-alert v-if="tagsError" :title="tagsError" type="error" show-icon :closable="false" />
+        <div v-loading="tagsLoading" class="customer-tags-area">
+          <div class="bound-tags">
+            <el-tag
+              v-for="tag in customerTags"
+              :key="tag.tag_id"
+              :closable="canTagUnbind"
+              effect="plain"
+              @close="unbindTag(tag)"
+              >{{ tag.tag_name }}</el-tag
+            >
+            <span v-if="!customerTags.length" class="related-muted">暂无标签</span>
+          </div>
+          <el-select
+            v-if="canTagBind"
+            v-model="selectedTagId"
+            clearable
+            filterable
+            placeholder="绑定标签"
+            class="tag-select"
+            @change="bindSelectedTag"
+          >
+            <el-option
+              v-for="tag in availableTags"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            />
+          </el-select>
+        </div>
+      </section>
+
       <section class="customer-detail-section">
         <div class="section-heading-row">
           <div>
@@ -174,26 +646,121 @@ onMounted(loadCustomer)
           row-key="id"
           class="data-table"
         >
-          <el-table-column label="操作" width="110">
-            <template #default="scope">
-              {{ scope.row.action === 'assigned' ? '分配' : '转移' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="原负责人" min-width="140">
-            <template #default="scope">{{ scope.row.previous_owner_name || '—' }}</template>
-          </el-table-column>
+          <el-table-column label="操作" width="110"
+            ><template #default="scope">{{
+              scope.row.action === 'assigned' ? '分配' : '转移'
+            }}</template></el-table-column
+          >
+          <el-table-column label="原负责人" min-width="140"
+            ><template #default="scope">{{
+              scope.row.previous_owner_name || '—'
+            }}</template></el-table-column
+          >
           <el-table-column label="新负责人" min-width="140" prop="new_owner_name" />
           <el-table-column label="新所属部门" min-width="140" prop="new_department_name" />
           <el-table-column label="操作人" min-width="140" prop="transferred_by_name" />
-          <el-table-column label="原因" min-width="180">
-            <template #default="scope">{{ scope.row.reason || '—' }}</template>
-          </el-table-column>
-          <el-table-column label="操作时间" min-width="180">
-            <template #default="scope">{{ formatDate(scope.row.created_at) }}</template>
-          </el-table-column>
+          <el-table-column label="原因" min-width="180"
+            ><template #default="scope">{{ scope.row.reason || '—' }}</template></el-table-column
+          >
+          <el-table-column label="操作时间" min-width="180"
+            ><template #default="scope">{{
+              formatDate(scope.row.created_at)
+            }}</template></el-table-column
+          >
         </el-table>
         <el-empty v-else description="暂无负责人变更记录" />
       </section>
     </template>
+
+    <el-dialog
+      v-model="contactDialogVisible"
+      :title="editingContactId ? '编辑联系人' : '新增联系人'"
+      width="640px"
+    >
+      <el-form ref="contactFormRef" :model="contactForm" :rules="contactRules" label-position="top">
+        <div class="form-grid">
+          <el-form-item label="姓名" prop="name" required
+            ><el-input v-model="contactForm.name"
+          /></el-form-item>
+          <el-form-item label="职务" prop="title"
+            ><el-input v-model="contactForm.title"
+          /></el-form-item>
+          <el-form-item label="手机号" prop="phone"
+            ><el-input v-model="contactForm.phone"
+          /></el-form-item>
+          <el-form-item label="邮箱" prop="email"
+            ><el-input v-model="contactForm.email"
+          /></el-form-item>
+          <el-form-item label="联系方式" prop="contact_method"
+            ><el-select v-model="contactForm.contact_method" clearable class="full-width"
+              ><el-option label="电话" value="电话" /><el-option
+                label="邮箱"
+                value="邮箱" /><el-option label="微信" value="微信" /><el-option
+                label="其他"
+                value="其他" /></el-select
+          ></el-form-item>
+          <el-form-item v-if="!editingContactId" label="主要联系人"
+            ><el-switch v-model="contactForm.is_primary" active-text="设为主要联系人"
+          /></el-form-item>
+          <el-form-item v-else label="主要联系人">
+            <el-tag :type="contactForm.is_primary ? 'success' : 'info'">
+              {{ contactForm.is_primary ? '当前为主要联系人' : '可在列表操作中设置' }}
+            </el-tag>
+          </el-form-item>
+        </div>
+        <el-form-item label="备注" prop="remark"
+          ><el-input
+            v-model="contactForm.remark"
+            type="textarea"
+            :rows="4"
+            maxlength="4000"
+            show-word-limit
+        /></el-form-item>
+      </el-form>
+      <template #footer
+        ><el-button @click="contactDialogVisible = false">取消</el-button
+        ><el-button type="primary" :loading="contactSaving" @click="saveContact"
+          >保存</el-button
+        ></template
+      >
+    </el-dialog>
+
+    <el-dialog v-model="tagDialogVisible" title="标签管理" width="620px">
+      <div class="tag-management-heading">
+        <span>当前可用标签 {{ tags.length }} 个</span
+        ><el-button
+          v-if="authStore.hasPermission('tags:create')"
+          type="primary"
+          @click="openTagCreate"
+          >新建标签</el-button
+        >
+      </div>
+      <el-table :data="tags" row-key="id" class="data-table">
+        <el-table-column label="标签名称" prop="name" />
+        <el-table-column label="说明" prop="description" />
+        <el-table-column v-if="canEditTag || canDeleteTag" label="操作" width="150"
+          ><template #default="scope"
+            ><el-button v-if="canEditTag" link type="primary" @click="openTagEdit(scope.row)"
+              >编辑</el-button
+            ><el-button v-if="canDeleteTag" link type="danger" @click="removeTag(scope.row)"
+              >删除</el-button
+            ></template
+          ></el-table-column
+        >
+        <template #empty><el-empty description="暂无标签" /></template>
+      </el-table>
+      <el-form v-if="tagFormVisible" label-position="top" class="tag-form">
+        <el-form-item label="标签名称" required
+          ><el-input v-model="tagForm.name" maxlength="100"
+        /></el-form-item>
+        <el-form-item label="说明"
+          ><el-input v-model="tagForm.description" maxlength="500"
+        /></el-form-item>
+        <div class="tag-form-actions">
+          <el-button @click="tagFormVisible = false">取消</el-button
+          ><el-button type="primary" :loading="tagSaving" @click="saveTag">保存</el-button>
+        </div>
+      </el-form>
+    </el-dialog>
   </section>
 </template>

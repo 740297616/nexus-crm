@@ -52,6 +52,7 @@ def get_customers(
     status: str | None = Query(default=None, pattern="^(active|inactive)$"),
     owner_id: str | None = None,
     department_id: str | None = None,
+    tag_id: str | None = None,
     created_from: date | None = None,
     created_to: date | None = None,
     sort_by: str = Query(
@@ -72,6 +73,7 @@ def get_customers(
         status=status,
         owner_id=owner_id,
         department_id=department_id,
+        tag_id=tag_id,
         created_from=created_from,
         created_to=created_to,
         sort_by=sort_by,

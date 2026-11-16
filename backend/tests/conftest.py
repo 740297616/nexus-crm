@@ -8,11 +8,13 @@ from app.db.base import Base
 from app.main import app
 from app.modules.auth.model import User
 from app.modules.auth.security import hash_password
+from app.modules.contacts import model as _contact_model  # noqa: F401
 from app.modules.customers import model as _customer_model  # noqa: F401
 from app.modules.organizations import model as _organization_model  # noqa: F401
 from app.modules.roles import model as _roles_model  # noqa: F401
 from app.modules.roles.model import Role
 from app.modules.roles.service import seed_default_rbac
+from app.modules.tags import model as _tag_model  # noqa: F401
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker

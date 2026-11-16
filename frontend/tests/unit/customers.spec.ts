@@ -30,7 +30,13 @@ describe('customer API client', () => {
   it('passes search, filters, and pagination to the scoped customer list endpoint', async () => {
     const page = { items: [], total: 0 }
     http.get.mockResolvedValue(success(page))
-    const filters = { search: 'Acme', source: 'referral', page: 2, page_size: 20 } as const
+    const filters = {
+      search: 'Acme',
+      source: 'referral',
+      tag_id: 'tag-id',
+      page: 2,
+      page_size: 20,
+    } as const
 
     await expect(listCustomers(filters)).resolves.toEqual({
       success: true,

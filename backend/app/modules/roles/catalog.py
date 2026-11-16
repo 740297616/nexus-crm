@@ -98,6 +98,32 @@ PERMISSION_CATALOG = (
     PermissionDefinition(
         "customers:transfer", "转移客户", "customers", "transfer", "api", "转移客户负责人并记录原因"
     ),
+    PermissionDefinition(
+        "contacts:read", "查看联系人", "contacts", "read", "api", "查询客户联系人"
+    ),
+    PermissionDefinition(
+        "contacts:create", "创建联系人", "contacts", "create", "api", "创建客户联系人"
+    ),
+    PermissionDefinition(
+        "contacts:update", "编辑联系人", "contacts", "update", "api", "编辑客户联系人"
+    ),
+    PermissionDefinition(
+        "contacts:delete", "删除联系人", "contacts", "delete", "api", "软删除客户联系人"
+    ),
+    PermissionDefinition(
+        "contacts:set_primary",
+        "设置主要联系人",
+        "contacts",
+        "set_primary",
+        "api",
+        "设置客户主要联系人",
+    ),
+    PermissionDefinition("tags:read", "查看标签", "tags", "read", "api", "查询客户标签"),
+    PermissionDefinition("tags:create", "创建标签", "tags", "create", "api", "创建客户标签"),
+    PermissionDefinition("tags:update", "编辑标签", "tags", "update", "api", "编辑客户标签"),
+    PermissionDefinition("tags:delete", "删除标签", "tags", "delete", "api", "软删除客户标签"),
+    PermissionDefinition("tags:bind", "绑定标签", "tags", "bind", "api", "为客户绑定标签"),
+    PermissionDefinition("tags:unbind", "解绑标签", "tags", "unbind", "api", "移除客户标签"),
 )
 
 ROLE_CATALOG = {
@@ -147,6 +173,17 @@ ROLE_CATALOG = {
             "customers:delete",
             "customers:assign",
             "customers:transfer",
+            "contacts:read",
+            "contacts:create",
+            "contacts:update",
+            "contacts:delete",
+            "contacts:set_primary",
+            "tags:read",
+            "tags:create",
+            "tags:update",
+            "tags:delete",
+            "tags:bind",
+            "tags:unbind",
         ),
     },
     "sales": {
@@ -161,6 +198,14 @@ ROLE_CATALOG = {
             "customers:read",
             "customers:create",
             "customers:update",
+            "contacts:read",
+            "contacts:create",
+            "contacts:update",
+            "contacts:delete",
+            "contacts:set_primary",
+            "tags:read",
+            "tags:bind",
+            "tags:unbind",
         ),
     },
 }

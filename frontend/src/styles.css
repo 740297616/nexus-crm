@@ -464,6 +464,80 @@ h1 {
   white-space: pre-wrap;
 }
 
+.related-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.related-search {
+  max-width: 360px;
+}
+
+.related-name-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  text-align: left;
+}
+
+.related-name-button strong {
+  color: #256b61;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.related-muted {
+  color: #82918f;
+  font-size: 13px;
+}
+
+.customer-tags-area {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.bound-tags {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.tag-select {
+  min-width: 180px;
+}
+
+.tag-management-heading {
+  align-items: center;
+  color: #6b7c79;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.tag-form {
+  border-top: 1px solid #e1e9e6;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.tag-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 1200px) {
   .customer-filters {
     grid-template-columns: repeat(3, minmax(0, 1fr));

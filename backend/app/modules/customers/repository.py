@@ -9,6 +9,7 @@ from app.modules.auth.model import User
 from app.modules.customers.model import Customer, CustomerOwnershipHistory
 from app.modules.customers.schema import CustomerListFilters
 from app.modules.organizations.model import Department
+from app.modules.tags.model import CustomerTag, Tag
 
 
 def list_customers(
@@ -215,6 +216,17 @@ def _apply_filters(
         conditions.append(Customer.owner_id == filters.owner_id)
     if filters.department_id:
         conditions.append(Customer.department_id == filters.department_id)
+    if filters.tag_id:
+        conditions.append(
+            Customer.id.in_(
+                select(CustomerTag.customer_id)
+                .join(Tag, CustomerTag.tag_id == Tag.id)
+                .where(
+                    CustomerTag.tag_id == filters.tag_id,
+                    Tag.deleted_at.is_(None),
+                )
+            )
+        )
     if filters.created_from:
         start = datetime.combine(filters.created_from, time.min, tzinfo=UTC)
         conditions.append(Customer.created_at >= start)

@@ -12,8 +12,9 @@ import {
   transferCustomer,
   type CustomerFilters,
 } from '@/api/customers'
+import { listTags } from '@/api/tags'
 import { useAuthStore } from '@/stores/auth'
-import type { CustomerAssignee, CustomerRecord } from '@/types/api'
+import type { CustomerAssignee, CustomerRecord, TagRecord } from '@/types/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -33,6 +34,8 @@ const ownerAction = ref<'assign' | 'transfer'>('assign')
 const selectedCustomer = ref<CustomerRecord | null>(null)
 const assignees = ref<CustomerAssignee[]>([])
 const ownerForm = reactive({ owner_id: '', reason: '' })
+const tags = ref<TagRecord[]>([])
+const canTagRead = authStore.hasPermission('tags:read')
 
 const canCreate = authStore.hasPermission('customers:create')
 const canUpdate = authStore.hasPermission('customers:update')
@@ -70,7 +73,17 @@ function resetFilters() {
   filters.industry = undefined
   filters.level = undefined
   filters.status = undefined
+  filters.tag_id = undefined
   applyFilters()
+}
+
+async function loadTags() {
+  if (!canTagRead) return
+  try {
+    tags.value = await listTags()
+  } catch {
+    tags.value = []
+  }
 }
 
 function changePage(nextPage: number) {
@@ -178,7 +191,7 @@ async function removeCustomer(customer: CustomerRecord) {
 }
 
 onMounted(async () => {
-  await loadCustomers()
+  await Promise.all([loadCustomers(), loadTags()])
   await openOwnerActionFromQuery()
 })
 </script>
@@ -220,6 +233,15 @@ onMounted(async () => {
       <el-select v-model="filters.status" clearable placeholder="客户状态">
         <el-option label="正常" value="active" />
         <el-option label="停用" value="inactive" />
+      </el-select>
+      <el-select
+        v-if="canTagRead"
+        v-model="filters.tag_id"
+        clearable
+        filterable
+        placeholder="客户标签"
+      >
+        <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.id" />
       </el-select>
       <el-button type="primary" @click="applyFilters">查询</el-button>
       <el-button @click="resetFilters"> 重置 </el-button>

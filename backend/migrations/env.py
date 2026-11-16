@@ -4,9 +4,11 @@ from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.modules.auth import model as _auth_model  # noqa: F401
+from app.modules.contacts import model as _contact_model  # noqa: F401
 from app.modules.customers import model as _customer_model  # noqa: F401
 from app.modules.organizations import model as _organization_model  # noqa: F401
 from app.modules.roles import model as _roles_model  # noqa: F401
+from app.modules.tags import model as _tag_model  # noqa: F401
 from sqlalchemy import engine_from_config, pool
 
 config = context.config

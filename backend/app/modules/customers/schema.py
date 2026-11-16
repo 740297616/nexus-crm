@@ -165,6 +165,7 @@ class CustomerListFilters(BaseModel):
     status: CustomerStatus | None = None
     owner_id: str | None = None
     department_id: str | None = None
+    tag_id: str | None = None
     created_from: date | None = None
     created_to: date | None = None
     sort_by: Literal["created_at", "updated_at", "customer_no", "name", "level", "status"] = (

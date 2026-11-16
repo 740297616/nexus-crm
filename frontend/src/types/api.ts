@@ -132,6 +132,42 @@ export interface CustomerDetail extends CustomerRecord {
   ownership_history: CustomerOwnershipHistoryRecord[]
 }
 
+export interface ContactRecord {
+  id: string
+  customer_id: string
+  name: string
+  title: string | null
+  phone: string | null
+  email: string | null
+  contact_method: string | null
+  is_primary: boolean
+  remark: string | null
+  created_by: string
+  created_by_name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TagRecord {
+  id: string
+  name: string
+  description: string | null
+  created_by: string
+  created_by_name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerTagRecord {
+  id: string
+  customer_id: string
+  tag_id: string
+  tag_name: string
+  tag_description: string | null
+  created_by: string
+  created_at: string
+}
+
 export interface CustomerAssignee {
   id: string
   username: string

@@ -2,9 +2,11 @@ from fastapi import APIRouter, Request
 
 from app.core.responses import success_response
 from app.modules.auth.router import router as auth_router
+from app.modules.contacts.router import router as contacts_router
 from app.modules.customers.router import router as customers_router
 from app.modules.organizations.router import router as departments_router
 from app.modules.roles.router import router as roles_router
+from app.modules.tags.router import router as tags_router
 from app.modules.users.router import router as users_router
 
 router = APIRouter()
@@ -13,6 +15,8 @@ router.include_router(users_router)
 router.include_router(departments_router)
 router.include_router(roles_router)
 router.include_router(customers_router)
+router.include_router(contacts_router)
+router.include_router(tags_router)
 
 
 @router.get("/meta", summary="API metadata")
